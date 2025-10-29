@@ -1,0 +1,211 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //Program name: "get_numbers". This program loops, asking the user for float input.
+     3                                  ; //              It uses getline, isfloat, and stringtof to read, validate, and convert
+     4                                  ; //              the input, storing it in the provided array.
+     5                                  ; //
+     6                                  ; //This file is part of the software program "Sum of Values".
+     7                                  ; //****************************************************************************************************************************
+     8                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+     9                                  ;
+    10                                  ; //Author information
+    11                                  ; //  Author name: konner rigby
+    12                                  ; //  Author email: rigbykonner@csu.fullerton.edu
+    13                                  ; //  CWID: 884547654
+    14                                  ; //  Class: 240-03 Section 03
+    15                                  ; //
+    16                                  ; //Program information
+    17                                  ; //  Program name: Sum of Values
+    18                                  ; //  Programming languages: X86 Assembly (NASM)
+    19                                  ; //
+    20                                  ; //Purpose
+    21                                  ; //  The purpose of this file is to manage the user input loop for gathering float numbers.
+    22                                  ; //  It validates input using 'isfloat' and converts valid strings to floats using 'stringtof'.
+    23                                  ; //  It also contains a workaround for bugs in the provided 'atof.asm'.
+    24                                  ; //
+    25                                  ; //This file
+    26                                  ; //   File name: get_numbers.asm
+    27                                  ; //   Language: x86 (NASM syntax)
+    28                                  ; //   Compile: nasm -f elf64 -o get_numbers.o -l get_numbers.lis get_numbers.asm
+    29                                  ; //
+    30                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    31                                  ; //
+    32                                  ; //
+    33                                  ; //===== Begin code area ===========================================================================================================
+    34                                  
+    35                                  global get_numbers
+    36                                  
+    37                                  extern getline
+    38                                  extern isfloat
+    39                                  extern stringtof
+    40                                  
+    41                                  segment .data
+    42 00000000 496E76616C69642066-         invalid_msg: db "Invalid float. Please try again.", 0x0A, 0
+    42 00000009 6C6F61742E20506C65-
+    42 00000012 617365207472792061-
+    42 0000001B 6761696E2E0A00     
+    43                                      invalid_len: equ $ - invalid_msg
+    44                                      
+    45 00000022 2D00                        minus_char: db '-', 0
+    46                                  
+    47                                      ; [BUG FIX 1]: Data for xmm operations MUST be 16-byte aligned
+    48 00000024 90<rep Ch>                  align 16
+    49 00000030 0000000000000080            sign_mask: dq 0x8000000000000000
+    50 00000038 0000000000002440            ten_float: dq 10.0
+    51 00000040 0000000000000000            zero_float: dq 0.0
+    52                                  
+    53                                  segment .bss
+    54 00000000 <res 64h>                   input_buffer: resb 100
+    55                                  
+    56                                  segment .text
+    57                                  get_numbers:
+    58                                      ; Prologue
+    59 00000000 55                          push rbp
+    60 00000001 4889E5                      mov rbp, rsp
+    61 00000004 53                          push rbx
+    62 00000005 51                          push rcx
+    63 00000006 52                          push rdx
+    64 00000007 4154                        push r12
+    65 00000009 4155                        push r13
+    66 0000000B 4156                        push r14
+    67 0000000D 4157                        push r15
+    68                                  
+    69                                      ; rdi = array pointer
+    70                                      ; rsi = max numbers
+    71 0000000F 4989FC                      mov r12, rdi                ; array pointer
+    72 00000012 41BD00000000                mov r13, 0                  ; number count (index)
+    73 00000018 4989F7                      mov r15, rsi                ; max numbers
+    74                                  
+    75                                  get_loop:
+    76 0000001B 4D39FD                      cmp r13, r15                ; count < max
+    77 0000001E 0F8D35010000                jge end_get_loop
+    78                                  
+    79                                      ; Get line
+    80 00000024 48BF-                       mov rdi, input_buffer
+    80 00000026 [0000000000000000] 
+    81 0000002E BE64000000                  mov rsi, 100
+    82 00000033 E8(00000000)                call getline
+    83 00000038 4989C6                      mov r14, rax                ; Save length in r14
+    84                                  
+    85                                      ; Check for EOF (Ctrl+D) ONLY
+    86 0000003B 4983FE00                    cmp r14, 0
+    87 0000003F 0F8414010000                je end_get_loop
+    88                                      
+    89                                  not_empty_line:
+    90                                      ; Stomp newline
+    91 00000045 4180BE[FFFFFFFF]0A          cmp byte [input_buffer + r14 - 1], 0x0A
+    92 0000004D 750B                        jne not_newline
+    93 0000004F 41C686[FFFFFFFF]00          mov byte [input_buffer + r14 - 1], 0
+    94 00000057 49FFCE                      dec r14
+    95                                      not_newline:
+    96                                  
+    97                                      ; Check for empty string *after stomping newline*
+    98                                      ; If empty, it's invalid input, not time to end.
+    99 0000005A 4983FE00                    cmp r14, 0
+   100 0000005E 0F84D5000000                je invalid_input
+   101                                  
+   102                                      ; Validate float
+   103 00000064 48BF-                       mov rdi, input_buffer
+   103 00000066 [0000000000000000] 
+   104 0000006E E8(00000000)                call isfloat
+   105 00000073 4883F800                    cmp rax, 0                  ; Check if false
+   106 00000077 0F84BC000000                je invalid_input
+   107                                  
+   108                                      ; --- [BUG FIX 2]: Rewritten parser logic ---
+   109 0000007D 41BE00000000                mov r14, 0                  ; is_negative flag = false
+   110 00000083 BB00000000                  mov rbx, 0                  ; index
+   111 00000088 B900000000                  mov rcx, 0                  ; integer_part
+   112 0000008D BA00000000                  mov rdx, 0                  ; decimal_places
+   113 00000092 41B900000000                mov r9, 0                   ; hit_decimal_flag
+   114                                      
+   115                                      ; Check for sign
+   116 00000098 803C25[00000000]2D          cmp byte [input_buffer], '-'
+   117 000000A0 750B                        jne check_plus
+   118 000000A2 41BE01000000                mov r14, 1                  ; is_negative = true
+   119 000000A8 48FFC3                      inc rbx
+   120 000000AB EB0D                        jmp parse_loop
+   121                                  check_plus:
+   122 000000AD 803C25[00000000]2B          cmp byte [input_buffer], '+'
+   123 000000B5 7503                        jne parse_loop
+   124 000000B7 48FFC3                      inc rbx                     ; Skip '+'
+   125                                      
+   126                                  parse_loop:
+   127 000000BA 80BB[00000000]00            cmp byte [input_buffer + rbx], 0 ; End of string?
+   128 000000C1 743C                        je end_parse_loop
+   129                                      
+   130 000000C3 80BB[00000000]2E            cmp byte [input_buffer + rbx], '.'
+   131 000000CA 7428                        je hit_decimal
+   132                                      
+   133                                      ; It's a digit
+   134 000000CC B80A000000                  mov rax, 10
+   135 000000D1 48F7E1                      mul rcx                     ; rax = rcx * 10
+   136 000000D4 4889C1                      mov rcx, rax
+   137                                      
+   138 000000D7 480FB683[00000000]          movzx rax, byte [input_buffer + rbx]
+   139 000000DF 4883E830                    sub rax, '0'
+   140 000000E3 4801C1                      add rcx, rax                ; rcx = (rcx * 10) + digit
+   141                                  
+   142 000000E6 4983F901                    cmp r9, 1                   ; Have we hit decimal?
+   143 000000EA 7503                        jne skip_inc_rdx            ; If not, don't count
+   144 000000EC 48FFC2                      inc rdx                     ; If yes, count this as a decimal place
+   145                                  skip_inc_rdx:
+   146 000000EF 48FFC3                      inc rbx
+   147 000000F2 EBC6                        jmp parse_loop
+   148                                  
+   149                                  hit_decimal:
+   150 000000F4 41B901000000                mov r9, 1                   ; Set hit_decimal_flag
+   151 000000FA 48FFC3                      inc rbx                     ; Move past the '.'
+   152 000000FD EBBB                        jmp parse_loop              ; Continue loop
+   153                                  
+   154                                  end_parse_loop:
+   155                                      ; Now, rcx = integer part (e.g., 123)
+   156                                      ; rdx = decimal places (e.g., 1 for "12.3")
+   157                                      ; r14 = is_negative (e.g., 0)
+   158                                      
+   159 000000FF F2480F2AC1                  cvtsi2sd xmm0, rcx          ; xmm0 = 123.0
+   160                                      
+   161                                      ; Divide by 10^rdx
+   162 00000104 B900000000                  mov rcx, 0                  ; Use rcx as loop counter
+   163                                  divide_loop:
+   164 00000109 4839D1                      cmp rcx, rdx
+   165 0000010C 7D0E                        jge end_divide_loop
+   166                                      
+   167 0000010E F20F5E0425-                 divsd xmm0, [ten_float]     ; xmm0 = xmm0 / 10.0
+   167 00000113 [38000000]         
+   168 00000117 48FFC1                      inc rcx
+   169 0000011A EBED                        jmp divide_loop
+   170                                  end_divide_loop:
+   171                                  
+   172                                      ; Fix sign
+   173 0000011C 4983FE01                    cmp r14, 1                  ; Was it negative?
+   174 00000120 7509                        jne store_number
+   175 00000122 660F570425-                 xorpd xmm0, [sign_mask]     ; Flip sign bit
+   175 00000127 [30000000]         
+   176                                  
+   177                                  store_number:
+   178 0000012B F2430F1104EC                movsd [r12 + r13 * 8], xmm0 ; Store float in array
+   179 00000131 49FFC5                      inc r13
+   180 00000134 E9E2FEFFFF                  jmp get_loop
+   181                                  
+   182                                  invalid_input:
+   183                                      ; Print "Invalid float"
+   184 00000139 B801000000                  mov rax, 1
+   185 0000013E BF01000000                  mov rdi, 1
+   186 00000143 48BE-                       mov rsi, invalid_msg
+   186 00000145 [0000000000000000] 
+   187 0000014D BA22000000                  mov rdx, invalid_len
+   188 00000152 0F05                        syscall
+   189 00000154 E9C2FEFFFF                  jmp get_loop
+   190                                  
+   191                                  end_get_loop:
+   192 00000159 4C89E8                      mov rax, r13                ; Return number of floats read
+   193                                  
+   194                                      ; Epilogue
+   195 0000015C 415F                        pop r15
+   196 0000015E 415E                        pop r14
+   197 00000160 415D                        pop r13
+   198 00000162 415C                        pop r12
+   199 00000164 5A                          pop rdx
+   200 00000165 59                          pop rcx
+   201 00000166 5B                          pop rbx
+   202 00000167 5D                          pop rbp
+   203 00000168 C3                          ret

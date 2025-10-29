@@ -1,0 +1,82 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //Program name: "getline". This program reads a line of text from stdin (fd 0)
+     3                                  ; //              until a newline or EOF is encountered. It stores the result in a
+     4                                  ; //              null-terminated string.
+     5                                  ; //
+     6                                  ; //This file is part of the software program "Sum of Values".
+     7                                  ; //****************************************************************************************************************************
+     8                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+     9                                  ;
+    10                                  ; //Author information
+    11                                  ; //  Author name: konner rigby
+    12                                  ; //  Author email: rigbykonner@csu.fullerton.edu
+    13                                  ; //  CWID: 884547654
+    14                                  ; //  Class: 240-03 Section 03
+    15                                  ; //
+    16                                  ; //Program information
+    17                                  ; //  Program name: Sum of Values
+    18                                  ; //  Programming languages: X86 Assembly (NASM)
+    19                                  ; //
+    20                                  ; //Purpose
+    21                                  ; //  The purpose of this file is to provide a simple 'getline' function using the 'getchar'
+    22                                  ; //  module, which relies on raw Linux syscalls.
+    23                                  ; //
+    24                                  ; //This file
+    25                                  ; //   File name: getline.asm
+    26                                  ; //   Language: x86 (NASM syntax)
+    27                                  ; //   Compile: nasm -f elf64 -o getline.o -l getline.lis getline.asm
+    28                                  ; //
+    29                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    30                                  ; //
+    31                                  ; //
+    32                                  ; //===== Begin code area ===========================================================================================================
+    33                                  
+    34                                  global getline
+    35                                  extern getchar
+    36                                  
+    37                                  segment .text
+    38                                  getline:
+    39                                      ; Prologue
+    40 00000000 55                          push rbp
+    41 00000001 4889E5                      mov rbp, rsp
+    42 00000004 4154                        push r12
+    43 00000006 4155                        push r13
+    44                                  
+    45                                      ; rdi = buffer pointer
+    46                                      ; rsi = max size
+    47 00000008 4989FC                      mov r12, rdi                ; Save buffer pointer
+    48 0000000B 41BD00000000                mov r13, 0                  ; index
+    49                                  
+    50                                  read_loop:
+    51 00000011 E8(00000000)                call getchar
+    52                                      
+    53                                      ; Check for EOF (returns 0)
+    54 00000016 4883F800                    cmp rax, 0
+    55 0000001A 741B                        je end_getline
+    56                                  
+    57                                      ; Check for newline (returns 0x0A)
+    58 0000001C 4883F80A                    cmp rax, 0x0A
+    59 00000020 740E                        je store_newline_and_end
+    60                                  
+    61                                      ; Check buffer overflow
+    62 00000022 4939F5                      cmp r13, rsi
+    63 00000025 7D10                        jge end_getline             ; Silently drop chars if buffer is full
+    64                                  
+    65                                      ; Store char
+    66 00000027 4388042C                    mov [r12 + r13], al
+    67 0000002B 49FFC5                      inc r13
+    68 0000002E EBE1                        jmp read_loop
+    69                                  
+    70                                  store_newline_and_end:
+    71 00000030 4388042C                    mov [r12 + r13], al         ; Store the newline
+    72 00000034 49FFC5                      inc r13
+    73                                  
+    74                                  end_getline:
+    75 00000037 43C6042C00                  mov byte [r12 + r13], 0     ; Null terminate
+    76 0000003C 4C89E8                      mov rax, r13                ; Return number of chars read (including newline)
+    77                                  
+    78                                      ; Epilogue
+    79 0000003F 415D                        pop r13
+    80 00000041 415C                        pop r12
+    81 00000043 5D                          pop rbp
+    82 00000044 C3                          ret

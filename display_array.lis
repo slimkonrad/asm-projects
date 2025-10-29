@@ -1,0 +1,115 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //Program name: "display_array". This program receives a pointer to an array of 64-bit floats
+     3                                  ; //              and a count. It iterates through the array, converting each float to a string
+     4                                  ; //              using 'ftoa' and printing it to stdout, followed by a newline.
+     5                                  ; //
+     6                                  ; //This file is part of the software program "Sum of Values".
+     7                                  ; //****************************************************************************************************************************
+     8                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+     9                                  ;
+    10                                  ; //Author information
+    11                                  ; //  Author name: konner rigby
+    12                                  ; //  Author email: rigbykonner@csu.fullerton.edu
+    13                                  ; //  CWID: 884547654
+    14                                  ; //  Class: 240-03 Section 03
+    15                                  ; //
+    16                                  ; //Program information
+    17                                  ; //  Program name: Sum of Values
+    18                                  ; //  Programming languages: X86 Assembly (NASM)
+    19                                  ; //
+    20                                  ; //Purpose
+    21                                  ; //  The purpose of this file is to print the contents of the float array to the console,
+    22                                  ; //  with each number on a new line, for user verification.
+    23                                  ; //
+    24                                  ; //This file
+    25                                  ; //   File name: display_array.asm
+    26                                  ; //   Language: x86 (NASM syntax)
+    27                                  ; //   Compile: nasm -f elf64 -o display_array.o -l display_array.lis display_array.asm
+    28                                  ; //
+    29                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    30                                  ; //
+    31                                  ; //
+    32                                  ; //===== Begin code area ===========================================================================================================
+    33                                  
+    34                                  global display_array
+    35                                  
+    36                                  extern ftoa
+    37                                  
+    38                                  segment .data
+    39 00000000 0A00                        newline: db 0x0A, 0
+    40                                  
+    41                                  segment .bss
+    42                                      ; float_buffer: resb 100   <--- REMOVED FROM BSS (THIS IS THE FIX)
+    43                                  
+    44                                  segment .text
+    45                                  display_array:
+    46                                      ; Prologue
+    47 00000000 55                          push rbp
+    48 00000001 4889E5                      mov rbp, rsp
+    49 00000004 4883EC68                    sub rsp, 104                ; <<< ALLOCATE 104 bytes on stack for buffer
+    50 00000008 4154                        push r12
+    51 0000000A 4155                        push r13
+    52 0000000C 4156                        push r14
+    53 0000000E 53                          push rbx
+    54                                  
+    55                                      ; rdi = array pointer
+    56                                      ; rsi = count
+    57 0000000F 4989FC                      mov r12, rdi                ; array
+    58 00000012 4989F5                      mov r13, rsi                ; count
+    59 00000015 41BE00000000                mov r14, 0                  ; index (i)
+    60                                  
+    61                                  display_loop:
+    62 0000001B 4D39EE                      cmp r14, r13                ; i < count
+    63 0000001E 7D4B                        jge end_display_loop
+    64                                  
+    65                                      ; 1. Convert float to string
+    66 00000020 F2430F1004F4                movsd xmm0, [r12 + r14 * 8] ; Load float
+    67 00000026 488D7D98                    lea rdi, [rbp - 104]        ; <<< rdi = pointer to stack buffer
+    68 0000002A E8(00000000)                call ftoa
+    69                                  
+    70                                      ; 2. Get length of string
+    71 0000002F 488D7D98                    lea rdi, [rbp - 104]        ; <<< rdi = pointer to stack buffer
+    72 00000033 E840000000                  call strlen_local
+    73 00000038 4889C2                      mov rdx, rax                ; Length for sys_write
+    74                                  
+    75                                      ; 3. Print float string
+    76 0000003B B801000000                  mov rax, 1
+    77 00000040 BF01000000                  mov rdi, 1
+    78 00000045 488D7598                    lea rsi, [rbp - 104]        ; <<< rsi = pointer to stack buffer
+    79 00000049 0F05                        syscall
+    80                                  
+    81                                      ; 4. Print newline
+    82 0000004B B801000000                  mov rax, 1
+    83 00000050 BF01000000                  mov rdi, 1
+    84 00000055 48BE-                       mov rsi, newline
+    84 00000057 [0000000000000000] 
+    85 0000005F BA01000000                  mov rdx, 1
+    86 00000064 0F05                        syscall
+    87                                  
+    88 00000066 49FFC6                      inc r14
+    89 00000069 EBB0                        jmp display_loop
+    90                                  
+    91                                  end_display_loop:
+    92                                      ; Epilogue
+    93 0000006B 5B                          pop rbx
+    94 0000006C 415E                        pop r14
+    95 0000006E 415D                        pop r13
+    96 00000070 415C                        pop r12
+    97 00000072 4883C468                    add rsp, 104                ; <<< DEALLOCATE stack buffer
+    98 00000076 5D                          pop rbp
+    99 00000077 C3                          ret
+   100                                  
+   101                                  ; Local strlen function
+   102                                  ; Input: rdi (string pointer)
+   103                                  ; Output: rax (length)
+   104                                  strlen_local:
+   105 00000078 57                          push rdi
+   106 00000079 B800000000                  mov rax, 0
+   107                                  strlen_loop:
+   108 0000007E 803C0700                    cmp byte [rdi + rax], 0
+   109 00000082 7405                        je strlen_end
+   110 00000084 48FFC0                      inc rax
+   111 00000087 EBF5                        jmp strlen_loop
+   112                                  strlen_end:
+   113 00000089 5F                          pop rdi
+   114 0000008A C3                          ret

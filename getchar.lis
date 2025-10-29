@@ -1,0 +1,68 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //Program name: "getchar". This program reads a single character from stdin (fd 0)
+     3                                  ; //              using the sys_read Linux syscall.
+     4                                  ; //
+     5                                  ; //This file is part of the software program "Sum of Values".
+     6                                  ; //****************************************************************************************************************************
+     7                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+     8                                  ;
+     9                                  ; //Author information
+    10                                  ; //  Author name: konner rigby
+    11                                  ; //  Author email: rigbykonner@csu.fullerton.edu
+    12                                  ; //  CWID: 884547654
+    13                                  ; //  Class: 240-03 Section 03
+    14                                  ; //
+    15                                  ; //Program information
+    16                                  ; //  Program name: Sum of Values
+    17                                  ; //  Programming languages: X86 Assembly (NASM)
+    18                                  ; //
+    19                                  ; //Purpose
+    20                                  ; //  The purpose of this file is to provide a basic 'getchar' function for reading
+    21                                  ; //  single bytes from standard input without C libraries.
+    22                                  ; //
+    23                                  ; //This file
+    24                                  ; //   File name: getchar.asm
+    25                                  ; //   Language: x86 (NASM syntax)
+    26                                  ; //   Compile: nasm -f elf64 -o getchar.o -l getchar.lis getchar.asm
+    27                                  ; //
+    28                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    29                                  ; //
+    30                                  ; //
+    31                                  ; //===== Begin code area ===========================================================================================================
+    32                                  
+    33                                  global getchar
+    34                                  
+    35                                  segment .bss
+    36 00000000 ??                          char_buffer: resb 1
+    37                                  
+    38                                  segment .text
+    39                                  getchar:
+    40                                      ; Prologue
+    41 00000000 55                          push rbp
+    42 00000001 4889E5                      mov rbp, rsp
+    43                                  
+    44                                      ; Syscall read
+    45 00000004 B800000000                  mov rax, 0                  ; sys_read
+    46 00000009 BF00000000                  mov rdi, 0                  ; stdin
+    47 0000000E 48BE-                       mov rsi, char_buffer
+    47 00000010 [0000000000000000] 
+    48 00000018 BA01000000                  mov rdx, 1                  ; Read 1 byte
+    49 0000001D 0F05                        syscall
+    50                                  
+    51                                      ; rax = bytes read
+    52                                      ; If 0 or less (EOF/error), return 0
+    53 0000001F 4883F800                    cmp rax, 0
+    54 00000023 7E0B                        jle return_eof
+    55                                  
+    56                                      ; Success, return the character
+    57 00000025 480FB60425-                 movzx rax, byte [char_buffer]
+    57 0000002A [00000000]         
+    58 0000002E EB03                        jmp getchar_end
+    59                                  
+    60                                  return_eof:
+    61 00000030 4831C0                      xor rax, rax                ; Return 0 for EOF
+    62                                  
+    63                                  getchar_end:
+    64                                      ; Epilogue
+    65 00000033 5D                          pop rbp
+    66 00000034 C3                          ret

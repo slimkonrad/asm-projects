@@ -1,0 +1,145 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //Program name: "ftoa". This program receives a 64-bit float in xmm0 and a pointer
+     3                                  ; //              to a string buffer in rdi. It converts the float to a null-terminated
+     4                                  ; //              ASCII string.
+     5                                  ; //
+     6                                  ; //This file is part of the software program "Sum of Values".
+     7                                  ; //****************************************************************************************************************************
+     8                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+     9                                  ;
+    10                                  ; //Author information
+    11                                  ; //  Author name: konner rigby
+    12                                  ; //  Author email: rigbykonner@csu.fullerton.edu
+    13                                  ; //  CWID: 884547654
+    14                                  ; //  Class: 240-03 Section 03
+    15                                  ; //
+    16                                  ; //Program information
+    17                                  ; //  Program name: Sum of Values
+    18                                  ; //  Programming languages: X86 Assembly (NASM)
+    19                                  ; //
+    20                                  ; //Purpose
+    21                                  ; //  The purpose of this file is to convert a 64-bit float into a displayable string.
+    22                                  ; //  It handles the sign, integer part, and fractional part.
+    23                                  ; //
+    24                                  ; //This file
+    25                                  ; //   File name: ftoa.asm
+    26                                  ; //   Language: x86 (NASM syntax)
+    27                                  ; //   Compile: nasm -f elf64 -o ftoa.o -l ftoa.lis ftoa.asm
+    28                                  ; //
+    29                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    30                                  ; //
+    31                                  ; //
+    32                                  ; //===== Begin code area ===========================================================================================================
+    33                                  
+    34                                  global ftoa
+    35                                  
+    36                                  segment .data
+    37                                      ; [BUG FIX]: Data for xmm operations MUST be 16-byte aligned
+    38                                      align 16
+    39 00000000 0000000000000080            sign_mask: dq 0x8000000000000000
+    40 00000008 0000000000002440            ten_power: dq 10.0
+    41 00000010 0000000000000000            zero_float: dq 0.0
+    42                                  
+    43                                  segment .text
+    44                                  ftoa:
+    45                                      ; Prologue
+    46 00000000 55                          push rbp
+    47 00000001 4889E5                      mov rbp, rsp
+    48 00000004 53                          push rbx
+    49 00000005 51                          push rcx
+    50 00000006 52                          push rdx
+    51 00000007 4154                        push r12
+    52 00000009 4155                        push r13
+    53 0000000B 4156                        push r14
+    54                                  
+    55                                      ; rdi = buffer pointer
+    56                                      ; xmm0 = float
+    57 0000000D 4989FC                      mov r12, rdi                ; Save buffer pointer
+    58 00000010 41BD00000000                mov r13, 0                  ; String index
+    59                                  
+    60                                      ; 1. Handle sign
+    61 00000016 660F2F0425-                 comisd xmm0, [zero_float]
+    61 0000001B [10000000]         
+    62 0000001F 7311                        jnb not_negative            ; Jump if xmm0 >= 0.0
+    63                                  
+    64                                      ; It's negative
+    65 00000021 43C6042C2D                  mov byte [r12 + r13], '-'
+    66 00000026 49FFC5                      inc r13
+    67 00000029 660F570425-                 xorpd xmm0, [sign_mask]     ; Make xmm0 positive
+    67 0000002E [00000000]         
+    68                                      
+    69                                  not_negative:
+    70                                      ; 2. Separate integer and fractional parts
+    71 00000032 F2480F2CC0                  cvttsd2si rax, xmm0         ; rax = truncated integer part
+    72 00000037 F2480F2AC8                  cvtsi2sd xmm1, rax          ; xmm1 = integer part as float
+    73 0000003C F20F5CC1                    subsd xmm0, xmm1            ; xmm0 = fractional part (e.g., 0.45)
+    74                                  
+    75                                      ; 3. Convert integer part (rax) to string (itoa)
+    76 00000040 BB0A000000                  mov rbx, 10
+    77 00000045 B900000000                  mov rcx, 0                  ; Digit counter
+    78 0000004A 4883F800                    cmp rax, 0
+    79 0000004E 7507                        jne itoa_loop               ; If rax is 0, just push '0'
+    80 00000050 6A30                        push '0'
+    81 00000052 48FFC1                      inc rcx
+    82 00000055 EB14                        jmp pop_digits_loop
+    83                                  
+    84                                  itoa_loop:
+    85 00000057 4831D2                      xor rdx, rdx
+    86 0000005A 48F7F3                      div rbx                     ; rax = quotient, rdx = remainder
+    87 0000005D 4883C230                    add rdx, '0'                ; Convert digit to ASCII
+    88 00000061 52                          push rdx                    ; Push digit
+    89 00000062 48FFC1                      inc rcx
+    90 00000065 4883F800                    cmp rax, 0
+    91 00000069 75EC                        jne itoa_loop
+    92                                  
+    93                                  pop_digits_loop:
+    94 0000006B 4883F900                    cmp rcx, 0
+    95 0000006F 740D                        je done_itoa
+    96 00000071 58                          pop rax
+    97 00000072 4388042C                    mov [r12 + r13], al
+    98 00000076 49FFC5                      inc r13
+    99 00000079 48FFC9                      dec rcx
+   100 0000007C EBED                        jmp pop_digits_loop
+   101                                  done_itoa:
+   102                                  
+   103                                      ; 4. Add decimal point
+   104 0000007E 43C6042C2E                  mov byte [r12 + r13], '.'
+   105 00000083 49FFC5                      inc r13
+   106                                  
+   107                                      ; 5. Convert fractional part (xmm0)
+   108 00000086 41BE00000000                mov r14, 0                  ; Precision counter (up to 6 places)
+   109                                  fraction_loop:
+   110 0000008C 4983FE06                    cmp r14, 6
+   111 00000090 7D29                        jge end_fraction
+   112                                  
+   113 00000092 F20F590425-                 mulsd xmm0, [ten_power]     ; e.g., 0.45 -> 4.5
+   113 00000097 [08000000]         
+   114 0000009B F2480F2CC0                  cvttsd2si rax, xmm0         ; rax = 4 (integer digit)
+   115                                      
+   116 000000A0 50                          push rax                    ; Save the integer digit (4)
+   117                                      
+   118 000000A1 4883C030                    add rax, '0'                ; Convert to ASCII ('4')
+   119 000000A5 4388042C                    mov [r12 + r13], al         ; Store '4'
+   120 000000A9 49FFC5                      inc r13
+   121                                  
+   122 000000AC 58                          pop rax                     ; Restore the integer digit (4)
+   123                                      
+   124 000000AD F2480F2AC8                  cvtsi2sd xmm1, rax          ; xmm1 = 4.0
+   125 000000B2 F20F5CC1                    subsd xmm0, xmm1            ; xmm0 = 4.5 - 4.0 = 0.5
+   126                                      
+   127 000000B6 49FFC6                      inc r14
+   128 000000B9 EBD1                        jmp fraction_loop
+   129                                  
+   130                                  end_fraction:
+   131                                      ; 6. Null terminate
+   132 000000BB 43C6042C00                  mov byte [r12 + r13], 0
+   133                                  
+   134                                      ; Epilogue
+   135 000000C0 415E                        pop r14
+   136 000000C2 415D                        pop r13
+   137 000000C4 415C                        pop r12
+   138 000000C6 5A                          pop rdx
+   139 000000C7 59                          pop rcx
+   140 000000C8 5B                          pop rbx
+   141 000000C9 5D                          pop rbp
+   142 000000CA C3                          ret
