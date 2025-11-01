@@ -130,18 +130,21 @@ _start:
     syscall
 
     ; 8. Convert sum to string and print
-    movsd xmm0, xmm1            ; Restore sum from xmm1
-    mov rdi, float_buffer
-    call ftoa
+movsd xmm0, xmm1            ; sum -> xmm0 (argument to ftoa)
+call ftoa                   ; RAX = pointer to ftoa's internal buffer
 
-    mov rdi, float_buffer       ; Get length of the sum string
-    call strlen_local
-    mov rdx, rax                ; Length is in rax
+mov r12, rax                ; save the returned pointer
 
-    mov rax, 1                  ; sys_write
-    mov rdi, 1
-    mov rsi, float_buffer
-    syscall                     ; rdx already has length
+; compute length
+mov rdi, r12                ; strlen_local(arg = pointer)
+call strlen_local           ; RAX = length
+mov rdx, rax                ; rdx = length for write
+
+; write the string
+mov rax, 1                  ; sys_write
+mov rdi, 1                  ; fd = stdout
+mov rsi, r12                ; buf = pointer returned by ftoa
+syscall
 
     ; 9. "Have a nice day, [name]"
     mov rax, 1

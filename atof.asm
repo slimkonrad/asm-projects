@@ -1,15 +1,15 @@
 ; //****************************************************************************************************************************
 ; //Program name: "stringtof". This program will be called from _start.asm and will receive a char array. The program will then
-; //             take that char array and convert it into a float number. It will then be returned to _start.asm as a float number (xmm)
-; //             Copyright (C) 2022 Timothy Vu.
-; //                                                                                                                            *
-; //This file is part of the software program "stringtof".                                                                      *
+; //               take that char array and convert it into a float number. It will then be returned to _start.asm as a float number (xmm)
+; //               Copyright (C) 2022 Timothy Vu.
+; //                                                                                                                           *
+; //This file is part of the software program "stringtof".                                                                   *
 ; //stringtof is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License   *
-; //version 3 as published by the Free Software Foundation.                                                                       *
-; //stringtof is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied           *
-; //warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.    *
+; //version 3 as published by the Free Software Foundation.                                                                    *
+; //stringtof is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied          *
+; //warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
 
-; //A copy of the GNU General Public License v3 is available here:  <https:;www.gnu.org/licenses/>.                               *
+; //A copy of the GNU General Public License v3 is available here:  <https:;www.gnu.org/licenses/>.                            *
 
 
 ; //****************************************************************************************************************************
@@ -46,31 +46,33 @@
 ; //===== Begin code area ===========================================================================================================
 
 ;Assembler directives
-base_number equ 10                          ;10 base of the decimal number system
-ascii_zero equ 48                           ;48 is the ascii value of '0'
+base_number equ 10                      ;10 base of the decimal number system
+ascii_zero equ 48                       ;48 is the ascii value of '0'
 null equ 0
 minus equ '-'
-decimal_point equ '.'                       ; <<< THIS IS THE CORRECTED LINE
+decimal_point equ '.'
 
 ;Global declaration for linking files.
-global stringtof                            ;This makes atolong callable by functions outside of this file.
+global atof                          ;This makes atolong callable by functions outside of this file.
 
-segment .data                               ;Place initialized data here
-    ;This segment is empy
+segment .data                           ;Place initialized data here
+   ;This segment is empy
+    ten_float   dq 10.0     ; Floating point constant for 10.0
+    minus_one   dq -1.0     ; Floating point constant for -1.0
 
-segment .bss                                ;Declare pointers to un-initialized space in this segment.
-    ;This segment is empty
+segment .bss                            ;Declare pointers to un-initialized space in this segment.
+   ;This segment is empty
 
 ;==============================================================================================================================
 ;===== Begin the executable code here.
 ;==============================================================================================================================
-segment .text                               ;Place executable instructions in this segment.
+segment .text                           ;Place executable instructions in this segment.
 
-stringtof:                                  ;Entry point.  Execution begins here.
+atof:                                ;Entry point.  Execution begins here.
 
 ;The next two instructions should be performed at the start of every assembly program.
-push rbp                                    ;This marks the start of a new stack frame belonging to this execution of this function.
-mov  rbp, rsp                               ;rbp holds the address of the start of this new stack frame.
+push rbp                                ;This marks the start of a new stack frame belonging to this execution of this function.
+mov  rbp, rsp                           ;rbp holds the address of the start of this new stack frame.
 ;The following pushes are performed for safety of the data that may already be in the remaining GPRs.
 ;This backup process is especially important when this module is called by another asm module.  It is less important when called
 ;called from a C or C++ function.
@@ -89,117 +91,89 @@ push r14
 push r15
 pushf
 
-;Designate the purpose of selected registers: r8, r9, r10
-mov r8, rdi                             ;Copy the pointer to char data to r8
-mov r9, 0                               ;r9 = array index
-mov r10, 0                              ;r10 = long integer; final integer will be here.
-xorpd xmm15, xmm15                      ; Final answer float
 
-; Checking the first character to see if it's a '+' or '-'
-;The first byte in the array may be '+' or '-', which are valid numeric characters.
-;We need to check for the presence of a leading sign.
-cmp byte [r8+1*0], '+'                  ;Check for leading plus sign
-jne next_comparison
-mov r9, 1
-jmp begin_loop
+ ; rdi = pointer to the input string
+    xor     rsi, rsi            ; rsi = index into the string, starts at 0
+    xor     r12, r12            ; r12b will be our neg_flag (0 = positive, 1 = negative)
+    xorpd   xmm0, xmm0          ; xmm0 will hold the integer part of the number
+    xorpd   xmm1, xmm1          ; xmm1 will hold the fractional part of the number
 
-next_comparison:
-cmp byte [r8+1*0], '-'                  ;Check for leading minus sign
-jne begin_loop
-mov r9, 1
+    ; --- 1. Handle Sign ---
+    cmp     byte [rdi + rsi], '-'
+    jne     check_positive_sign
+    mov     r12b, 1             ; Set neg_flag
+    inc     rsi                 ; Move to the next character
+    jmp     integer_loop_start
 
-; we already checked that this is a float (isFloat in asm)
-; '1235.23\0'
-; 123523 -> integer -> cvtsi2sd into xmm register -> divide by 10 however many decimal places
-; count 2 decimal places 123523/10/10 = 1235.23
-mov r11, 0 ; num_decimal_places
-mov r13, 0 ; This represents if we already decimal place (flag: hit_decimal_place)
-begin_loop:
-cmp byte [r8+1*r9], null                ;Check the termination condition of the loop
-je loop_finished
-; if we reach the decimal point
-      ; move the index forward
-      ; set hit_decimal_place = True
-cmp byte [r8+1*r9], decimal_point
-je HasDecimalPoint
+check_positive_sign:
+    cmp     byte [rdi + rsi], '+'
+    jne     integer_loop_start
+    inc     rsi                 ; Move to the next character
 
-mov rax, base_number
-mul r10 ; rax = r10 * 10            mul rax,     r10, 1 on the second iteration
-; r10 contains 12
-; multiply 10 against 12 = 120
-mov r10, rax ; second iteration r10 contains 1*10
+    ; --- 2. Process Integer Part ---
+integer_loop_start:
+    ; Check if the current character is a digit
+    movzx   rax, byte [rdi + rsi]
+    cmp     rax, '0'
+    jl      handle_decimal_point ; If less than '0', it's not a digit
+    cmp     rax, '9'
+    jg      handle_decimal_point ; If greater than '9', it's not a digit
 
-;This is the instuction we want to perform: "add r10, byte [r8+1*r9]".  But the problem is that the
-;sizes of operands do not match.  You cannot add a 1-byte number to an 8-byte number.  However, the
-;problem can be fixed by using the extension instructions documented on page 77 of the Jorgensen textbook.
-mov al, byte [r8+1*r9]                  ;The 1-byte number has been copied to al (1-byte register)
-cbw                                     ;The 1-byte number in al has been extended to 2-byte number in ax
-cwde                                    ;The 2-byte number in ax has been extended to 4-byte number in eax
-cdqe                                    ;The 4-byte number in eax has been extended to 8-byte number in rax
+    ; It is a digit, so process it
+    ; xmm0 = xmm0 * 10.0
+    mulsd   xmm0, [ten_float]
 
-; current char is placed into rax
-; 1234.45
-; 1234(T)4
-; 123445 decimal_place = 2
-; '1' - ascii character - 1 + 48 = 49
-; '2' - ascii character - 2 + 48
-; subtract 48 from the ascii character to get the actual number
-;Now addition is possible
-add r10, rax                            ;To students in 240 class: wasn't that simply great fun?
-; 10 + 2 = 12
-sub r10, ascii_zero                     ;A declared constant is compatible with various sizes of registers; explained in Jorgensen.
+    ; Convert char to integer ('5' -> 5)
+    sub     rax, '0'
 
-jmp OverHasDecimalPoint
-HasDecimalPoint:
-; set decimal flag to true
-mov r13, 1
+    ; Convert integer to float and add to our total
+    cvtsi2sd xmm2, rax          ; xmm2 = (double)rax
+    addsd   xmm0, xmm2          ; xmm0 = xmm0 + new_digit
 
-OverHasDecimalPoint:
-; check if flag: hit_decimal_place r13 is true
-; increment decimal counter
-cmp r13, 1
-je IncrementDecimalCounter
-jmp OverIncrementCounter
-IncrementDecimalCounter:
-inc r11
-OverIncrementCounter:
+    inc     rsi
+    jmp     integer_loop_start
 
-inc r9
-jmp begin_loop
-loop_finished:
+    ; --- 3. Handle Decimal Point ---
+handle_decimal_point:
+    cmp     byte [rdi + rsi], '.'
+    jne     combine_parts       ; If not a decimal, we are done parsing
+    inc     rsi                 ; Move past the '.'
+
+    ; --- 4. Process Fractional Part ---
+    ; Setup for the fractional loop
+    mov     r13, ten_float      ; Use memory address of 10.0
+    movsd   xmm3, [r13]         ; xmm3 = divisor, starting at 10.0
+
+fractional_loop_start:
+    ; Check if the current character is a digit
+    movzx   rax, byte [rdi + rsi]
+    cmp     rax, '0'
+    jl      combine_parts       ; Not a digit, finish up
+    cmp     rax, '9'
+    jg      combine_parts       ; Not a digit, finish up
+
+    ; It's a digit, process it
+    sub     rax, '0'            ; Convert char to integer
+    cvtsi2sd xmm2, rax          ; Convert integer to float (e.g., 7 -> 7.0)
+
+    divsd   xmm2, xmm3          ; xmm2 = digit / divisor (e.g., 7.0 / 10.0 = 0.7)
+    addsd   xmm1, xmm2          ; Add to fractional total
+
+    mulsd   xmm3, [ten_float]   ; Update divisor for next digit (10 -> 100 -> 1000)
+    inc     rsi
+    jmp     fractional_loop_start
+
+    ; --- 5. Final Combination ---
+combine_parts:
+    addsd   xmm0, xmm1          ; Final number = integer part + fractional part
+
+    ; Apply the negative sign if the flag was set
+    cmp     r12b, 1
+    jne     epilogue
+    mulsd   xmm0, [minus_one]   ; Make the number negative
 
 
-; 123445 decimal_place = 2 
-
-cvtsi2sd xmm15, r10
-; From gdb we see that num_decimal_place is always 1 greater
-; sub tract 1 from r15 first
-sub r11, 1
-; for i = 0, i < r15, i++:
-;     divide xmm15 by 10
-
-; save a 10.0
-mov rax, 10
-cvtsi2sd xmm14, rax
-
-mov r10, 0
-forloop:
-cmp r10, r11
-je endForLoop
-divsd xmm15, xmm14
-inc r10
-jmp forloop
-endForLoop:
-
-;Set the computed value to negative if needed
-cmp byte [r8+1*0], minus                ;Check for leading minus sign
-jne positive
-neg r10                                 ; <<< THIS IS THE LOGIC BUG (should be applied before cvtsi2sd or to xmm15)
-
-positive:
-mov rax, r10
-
-movsd xmm0, xmm15
+epilogue:
 ;==================================================================================================================================
 ;Epilogue: restore data to the values held before this function was called.
 popf
@@ -216,6 +190,6 @@ pop rdi
 pop rdx
 pop rcx
 pop rbx
-pop rbp                                 ;Now the system stack is in the same state it was when this function began execution.
-ret                                     ;Pop a qword from the stack into rip, and continue executing..
+pop rbp                       ;Now the system stack is in the same state it was when this function began execution.
+ret                           ;Pop a qword from the stack into rip, and continue executing..
 ;========== End of module atol.asm ================================================================================================; //****************************************************************************************************************************

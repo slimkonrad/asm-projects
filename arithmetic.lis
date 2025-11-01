@@ -161,61 +161,61 @@
    130 000000D9 0F05                        syscall
    131                                  
    132                                      ; 8. Convert sum to string and print
-   133 000000DB F20F10C1                    movsd xmm0, xmm1            ; Restore sum from xmm1
-   134 000000DF 48BF-                       mov rdi, float_buffer
-   134 000000E1 [8403000000000000] 
-   135 000000E9 E8(00000000)                call ftoa
-   136                                  
-   137 000000EE 48BF-                       mov rdi, float_buffer       ; Get length of the sum string
-   137 000000F0 [8403000000000000] 
-   138 000000F8 E872000000                  call strlen_local
-   139 000000FD 4889C2                      mov rdx, rax                ; Length is in rax
-   140                                  
-   141 00000100 B801000000                  mov rax, 1                  ; sys_write
-   142 00000105 BF01000000                  mov rdi, 1
-   143 0000010A 48BE-                       mov rsi, float_buffer
-   143 0000010C [8403000000000000] 
-   144 00000114 0F05                        syscall                     ; rdx already has length
-   145                                  
-   146                                      ; 9. "Have a nice day, [name]"
-   147 00000116 B801000000                  mov rax, 1
-   148 0000011B BF01000000                  mov rdi, 1
-   149 00000120 48BE-                       mov rsi, goodbye_msg
-   149 00000122 [CE00000000000000] 
-   150 0000012A BA13000000                  mov rdx, goodbye_len
-   151 0000012F 0F05                        syscall
-   152                                  
-   153 00000131 B801000000                  mov rax, 1
-   154 00000136 BF01000000                  mov rdi, 1
-   155 0000013B 48BE-                       mov rsi, user_name
-   155 0000013D [0000000000000000] 
-   156 00000145 4C89F2                      mov rdx, r14                ; Use saved name length
-   157 00000148 0F05                        syscall
-   158                                  
-   159                                      ; 10. Print final newline
-   160 0000014A B801000000                  mov rax, 1
-   161 0000014F BF01000000                  mov rdi, 1
-   162 00000154 48BE-                       mov rsi, newline
-   162 00000156 [E100000000000000] 
-   163 0000015E BA01000000                  mov rdx, newline_len
-   164 00000163 0F05                        syscall
-   165                                  
-   166                                      ; 11. Exit
-   167 00000165 B83C000000                  mov rax, 60
-   168 0000016A 4831FF                      xor rdi, rdi
-   169 0000016D 0F05                        syscall
-   170                                  
-   171                                  ; Local strlen function
-   172                                  ; Input: rdi (string pointer)
-   173                                  ; Output: rax (length)
-   174                                  strlen_local:
-   175 0000016F 57                          push rdi
-   176 00000170 B800000000                  mov rax, 0
-   177                                  strlen_loop:
-   178 00000175 803C0700                    cmp byte [rdi + rax], 0
-   179 00000179 7405                        je strlen_end
-   180 0000017B 48FFC0                      inc rax
-   181 0000017E EBF5                        jmp strlen_loop
-   182                                  strlen_end:
-   183 00000180 5F                          pop rdi
-   184 00000181 C3                          ret
+   133 000000DB F20F10C1                movsd xmm0, xmm1            ; sum -> xmm0 (argument to ftoa)
+   134 000000DF E8(00000000)            call ftoa                   ; RAX = pointer to ftoa's internal buffer
+   135                                  
+   136 000000E4 4989C4                  mov r12, rax                ; save the returned pointer
+   137                                  
+   138                                  ; compute length
+   139 000000E7 4C89E7                  mov rdi, r12                ; strlen_local(arg = pointer)
+   140 000000EA E86B000000              call strlen_local           ; RAX = length
+   141 000000EF 4889C2                  mov rdx, rax                ; rdx = length for write
+   142                                  
+   143                                  ; write the string
+   144 000000F2 B801000000              mov rax, 1                  ; sys_write
+   145 000000F7 BF01000000              mov rdi, 1                  ; fd = stdout
+   146 000000FC 4C89E6                  mov rsi, r12                ; buf = pointer returned by ftoa
+   147 000000FF 0F05                    syscall
+   148                                  
+   149                                      ; 9. "Have a nice day, [name]"
+   150 00000101 B801000000                  mov rax, 1
+   151 00000106 BF01000000                  mov rdi, 1
+   152 0000010B 48BE-                       mov rsi, goodbye_msg
+   152 0000010D [CE00000000000000] 
+   153 00000115 BA13000000                  mov rdx, goodbye_len
+   154 0000011A 0F05                        syscall
+   155                                  
+   156 0000011C B801000000                  mov rax, 1
+   157 00000121 BF01000000                  mov rdi, 1
+   158 00000126 48BE-                       mov rsi, user_name
+   158 00000128 [0000000000000000] 
+   159 00000130 4C89F2                      mov rdx, r14                ; Use saved name length
+   160 00000133 0F05                        syscall
+   161                                  
+   162                                      ; 10. Print final newline
+   163 00000135 B801000000                  mov rax, 1
+   164 0000013A BF01000000                  mov rdi, 1
+   165 0000013F 48BE-                       mov rsi, newline
+   165 00000141 [E100000000000000] 
+   166 00000149 BA01000000                  mov rdx, newline_len
+   167 0000014E 0F05                        syscall
+   168                                  
+   169                                      ; 11. Exit
+   170 00000150 B83C000000                  mov rax, 60
+   171 00000155 4831FF                      xor rdi, rdi
+   172 00000158 0F05                        syscall
+   173                                  
+   174                                  ; Local strlen function
+   175                                  ; Input: rdi (string pointer)
+   176                                  ; Output: rax (length)
+   177                                  strlen_local:
+   178 0000015A 57                          push rdi
+   179 0000015B B800000000                  mov rax, 0
+   180                                  strlen_loop:
+   181 00000160 803C0700                    cmp byte [rdi + rax], 0
+   182 00000164 7405                        je strlen_end
+   183 00000166 48FFC0                      inc rax
+   184 00000169 EBF5                        jmp strlen_loop
+   185                                  strlen_end:
+   186 0000016B 5F                          pop rdi
+   187 0000016C C3                          ret

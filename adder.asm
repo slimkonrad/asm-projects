@@ -45,7 +45,7 @@ adder:
     mov r12, rdi                ; array pointer
     mov r13, rsi                ; count
     mov r14, 0                  ; index (i)
-    pxor xmm0, xmm0             ; sum = 0.0
+    xorpd xmm0, xmm0             ; sum = 0.0
 
 sum_loop:
     cmp r14, r13                ; i < count

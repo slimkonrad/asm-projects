@@ -32,21 +32,16 @@
 ; //===== Begin code area ===========================================================================================================
 
 global display_array
-
 extern ftoa
 
 segment .data
     newline: db 0x0A, 0
 
-segment .bss
-    ; float_buffer: resb 100   <--- REMOVED FROM BSS (THIS IS THE FIX)
-
 segment .text
 display_array:
     ; Prologue
     push rbp
-    mov rbp, rsp
-    sub rsp, 104                ; <<< ALLOCATE 104 bytes on stack for buffer
+    mov  rbp, rsp
     push r12
     push r13
     push r14
@@ -56,32 +51,32 @@ display_array:
     ; rsi = count
     mov r12, rdi                ; array
     mov r13, rsi                ; count
-    mov r14, 0                  ; index (i)
+    mov r14, 0                  ; index
 
 display_loop:
-    cmp r14, r13                ; i < count
+    cmp r14, r13
     jge end_display_loop
 
-    ; 1. Convert float to string
-    movsd xmm0, [r12 + r14 * 8] ; Load float
-    lea rdi, [rbp - 104]        ; <<< rdi = pointer to stack buffer
+    ; 1) element -> string
+    movsd xmm0, [r12 + r14*8]
     call ftoa
+    mov   rbx, rax              ; save pointer
 
-    ; 2. Get length of string
-    lea rdi, [rbp - 104]        ; <<< rdi = pointer to stack buffer
+    ; 2) length
+    mov rdi, rbx
     call strlen_local
-    mov rdx, rax                ; Length for sys_write
+    mov rdx, rax
 
-    ; 3. Print float string
+    ; 3) write string
     mov rax, 1
     mov rdi, 1
-    lea rsi, [rbp - 104]        ; <<< rsi = pointer to stack buffer
+    mov rsi, rbx
     syscall
 
-    ; 4. Print newline
+    ; 4) newline
     mov rax, 1
     mov rdi, 1
-    mov rsi, newline
+    lea rsi, [rel newline]
     mov rdx, 1
     syscall
 
@@ -89,26 +84,22 @@ display_loop:
     jmp display_loop
 
 end_display_loop:
-    ; Epilogue
     pop rbx
     pop r14
     pop r13
     pop r12
-    add rsp, 104                ; <<< DEALLOCATE stack buffer
     pop rbp
     ret
 
-; Local strlen function
-; Input: rdi (string pointer)
-; Output: rax (length)
+; Local strlen
 strlen_local:
     push rdi
-    mov rax, 0
-strlen_loop:
-    cmp byte [rdi + rax], 0
-    je strlen_end
+    mov  rax, 0
+.Lloop:
+    cmp byte [rdi+rax], 0
+    je  .Lend
     inc rax
-    jmp strlen_loop
-strlen_end:
+    jmp .Lloop
+.Lend:
     pop rdi
     ret

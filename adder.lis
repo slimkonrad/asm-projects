@@ -45,7 +45,7 @@
     45 0000000A 4989FC                      mov r12, rdi                ; array pointer
     46 0000000D 4989F5                      mov r13, rsi                ; count
     47 00000010 41BE00000000                mov r14, 0                  ; index (i)
-    48 00000016 660FEFC0                    pxor xmm0, xmm0             ; sum = 0.0
+    48 00000016 660F57C0                    xorpd xmm0, xmm0             ; sum = 0.0
     49                                  
     50                                  sum_loop:
     51 0000001A 4D39EE                      cmp r14, r13                ; i < count

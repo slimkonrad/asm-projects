@@ -77,7 +77,7 @@
     74                                  
     75                                  get_loop:
     76 0000001B 4D39FD                      cmp r13, r15                ; count < max
-    77 0000001E 0F8D35010000                jge end_get_loop
+    77 0000001E 0F8D2E010000                jge end_get_loop
     78                                  
     79                                      ; Get line
     80 00000024 48BF-                       mov rdi, input_buffer
@@ -88,10 +88,10 @@
     84                                  
     85                                      ; Check for EOF (Ctrl+D) ONLY
     86 0000003B 4983FE00                    cmp r14, 0
-    87 0000003F 0F8414010000                je end_get_loop
+    87 0000003F 0F840D010000                je end_get_loop
     88                                      
     89                                  not_empty_line:
-    90                                      ; Stomp newline
+    90                                      ; Stomps the newline
     91 00000045 4180BE[FFFFFFFF]0A          cmp byte [input_buffer + r14 - 1], 0x0A
     92 0000004D 750B                        jne not_newline
     93 0000004F 41C686[FFFFFFFF]00          mov byte [input_buffer + r14 - 1], 0
@@ -101,14 +101,14 @@
     97                                      ; Check for empty string *after stomping newline*
     98                                      ; If empty, it's invalid input, not time to end.
     99 0000005A 4983FE00                    cmp r14, 0
-   100 0000005E 0F84D5000000                je invalid_input
+   100 0000005E 0F84CE000000                je invalid_input
    101                                  
    102                                      ; Validate float
    103 00000064 48BF-                       mov rdi, input_buffer
    103 00000066 [0000000000000000] 
    104 0000006E E8(00000000)                call isfloat
    105 00000073 4883F800                    cmp rax, 0                  ; Check if false
-   106 00000077 0F84BC000000                je invalid_input
+   106 00000077 0F84B5000000                je invalid_input
    107                                  
    108                                      ; --- [BUG FIX 2]: Rewritten parser logic ---
    109 0000007D 41BE00000000                mov r14, 0                  ; is_negative flag = false
@@ -130,82 +130,80 @@
    125                                      
    126                                  parse_loop:
    127 000000BA 80BB[00000000]00            cmp byte [input_buffer + rbx], 0 ; End of string?
-   128 000000C1 743C                        je end_parse_loop
+   128 000000C1 7435                        je end_parse_loop
    129                                      
    130 000000C3 80BB[00000000]2E            cmp byte [input_buffer + rbx], '.'
-   131 000000CA 7428                        je hit_decimal
+   131 000000CA 7421                        je hit_decimal
    132                                      
    133                                      ; It's a digit
-   134 000000CC B80A000000                  mov rax, 10
-   135 000000D1 48F7E1                      mul rcx                     ; rax = rcx * 10
-   136 000000D4 4889C1                      mov rcx, rax
-   137                                      
-   138 000000D7 480FB683[00000000]          movzx rax, byte [input_buffer + rbx]
-   139 000000DF 4883E830                    sub rax, '0'
-   140 000000E3 4801C1                      add rcx, rax                ; rcx = (rcx * 10) + digit
-   141                                  
-   142 000000E6 4983F901                    cmp r9, 1                   ; Have we hit decimal?
-   143 000000EA 7503                        jne skip_inc_rdx            ; If not, don't count
-   144 000000EC 48FFC2                      inc rdx                     ; If yes, count this as a decimal place
-   145                                  skip_inc_rdx:
-   146 000000EF 48FFC3                      inc rbx
-   147 000000F2 EBC6                        jmp parse_loop
-   148                                  
-   149                                  hit_decimal:
-   150 000000F4 41B901000000                mov r9, 1                   ; Set hit_decimal_flag
-   151 000000FA 48FFC3                      inc rbx                     ; Move past the '.'
-   152 000000FD EBBB                        jmp parse_loop              ; Continue loop
-   153                                  
-   154                                  end_parse_loop:
-   155                                      ; Now, rcx = integer part (e.g., 123)
-   156                                      ; rdx = decimal places (e.g., 1 for "12.3")
-   157                                      ; r14 = is_negative (e.g., 0)
+   134 000000CC 486BC90A                    imul rcx, rcx, 10
+   135                                      
+   136 000000D0 480FB683[00000000]          movzx rax, byte [input_buffer + rbx]
+   137 000000D8 4883E830                    sub rax, '0'
+   138 000000DC 4801C1                      add rcx, rax                ; rcx = (rcx * 10) + digit
+   139                                  
+   140 000000DF 4983F901                    cmp r9, 1                   ; Have we hit decimal?
+   141 000000E3 7503                        jne skip_inc_rdx            ; If not, don't count
+   142 000000E5 48FFC2                      inc rdx                     ; If yes, count this as a decimal place
+   143                                  skip_inc_rdx:
+   144 000000E8 48FFC3                      inc rbx
+   145 000000EB EBCD                        jmp parse_loop
+   146                                  
+   147                                  hit_decimal:
+   148 000000ED 41B901000000                mov r9, 1                   ; Set hit_decimal_flag
+   149 000000F3 48FFC3                      inc rbx                     ; Move past the '.'
+   150 000000F6 EBC2                        jmp parse_loop              ; Continue loop
+   151                                  
+   152                                  end_parse_loop:
+   153                                      ; Now, rcx = integer part (e.g., 123)
+   154                                      ; rdx = decimal places (e.g., 1 for "12.3")
+   155                                      ; r14 = is_negative (e.g., 0)
+   156                                      
+   157 000000F8 F2480F2AC1                  cvtsi2sd xmm0, rcx          ; xmm0 = 123.0
    158                                      
-   159 000000FF F2480F2AC1                  cvtsi2sd xmm0, rcx          ; xmm0 = 123.0
-   160                                      
-   161                                      ; Divide by 10^rdx
-   162 00000104 B900000000                  mov rcx, 0                  ; Use rcx as loop counter
-   163                                  divide_loop:
-   164 00000109 4839D1                      cmp rcx, rdx
-   165 0000010C 7D0E                        jge end_divide_loop
-   166                                      
-   167 0000010E F20F5E0425-                 divsd xmm0, [ten_float]     ; xmm0 = xmm0 / 10.0
-   167 00000113 [38000000]         
-   168 00000117 48FFC1                      inc rcx
-   169 0000011A EBED                        jmp divide_loop
-   170                                  end_divide_loop:
-   171                                  
-   172                                      ; Fix sign
-   173 0000011C 4983FE01                    cmp r14, 1                  ; Was it negative?
-   174 00000120 7509                        jne store_number
-   175 00000122 660F570425-                 xorpd xmm0, [sign_mask]     ; Flip sign bit
-   175 00000127 [30000000]         
-   176                                  
-   177                                  store_number:
-   178 0000012B F2430F1104EC                movsd [r12 + r13 * 8], xmm0 ; Store float in array
-   179 00000131 49FFC5                      inc r13
-   180 00000134 E9E2FEFFFF                  jmp get_loop
-   181                                  
-   182                                  invalid_input:
-   183                                      ; Print "Invalid float"
-   184 00000139 B801000000                  mov rax, 1
-   185 0000013E BF01000000                  mov rdi, 1
-   186 00000143 48BE-                       mov rsi, invalid_msg
-   186 00000145 [0000000000000000] 
-   187 0000014D BA22000000                  mov rdx, invalid_len
-   188 00000152 0F05                        syscall
-   189 00000154 E9C2FEFFFF                  jmp get_loop
-   190                                  
-   191                                  end_get_loop:
-   192 00000159 4C89E8                      mov rax, r13                ; Return number of floats read
-   193                                  
-   194                                      ; Epilogue
-   195 0000015C 415F                        pop r15
-   196 0000015E 415E                        pop r14
-   197 00000160 415D                        pop r13
-   198 00000162 415C                        pop r12
-   199 00000164 5A                          pop rdx
-   200 00000165 59                          pop rcx
-   201 00000166 5B                          pop rbx
-   202 00000167 5D                          pop rbp
-   203 00000168 C3                          ret
+   159                                      ; Divide by 10^rdx
+   160 000000FD B900000000                  mov rcx, 0                  ; Use rcx as loop counter
+   161                                  divide_loop:
+   162 00000102 4839D1                      cmp rcx, rdx
+   163 00000105 7D0E                        jge end_divide_loop
+   164                                      
+   165 00000107 F20F5E0425-                 divsd xmm0, [ten_float]     ; xmm0 = xmm0 / 10.0
+   165 0000010C [38000000]         
+   166 00000110 48FFC1                      inc rcx
+   167 00000113 EBED                        jmp divide_loop
+   168                                  end_divide_loop:
+   169                                  
+   170                                      ; Fix sign
+   171 00000115 4983FE01                    cmp r14, 1                  ; Was it negative?
+   172 00000119 7509                        jne store_number
+   173 0000011B 660F570425-                 xorpd xmm0, [sign_mask]     ; Flip sign bit
+   173 00000120 [30000000]         
+   174                                  
+   175                                  store_number:
+   176 00000124 F2430F1104EC                movsd [r12 + r13 * 8], xmm0 ; Store float in array
+   177 0000012A 49FFC5                      inc r13
+   178 0000012D E9E9FEFFFF                  jmp get_loop
+   179                                  
+   180                                  invalid_input:
+   181                                      ; Print "Invalid float"
+   182 00000132 B801000000                  mov rax, 1
+   183 00000137 BF01000000                  mov rdi, 1
+   184 0000013C 48BE-                       mov rsi, invalid_msg
+   184 0000013E [0000000000000000] 
+   185 00000146 BA22000000                  mov rdx, invalid_len
+   186 0000014B 0F05                        syscall
+   187 0000014D E9C9FEFFFF                  jmp get_loop
+   188                                  
+   189                                  end_get_loop:
+   190 00000152 4C89E8                      mov rax, r13                ; Return number of floats read
+   191                                  
+   192                                      ; Epilogue
+   193 00000155 415F                        pop r15
+   194 00000157 415E                        pop r14
+   195 00000159 415D                        pop r13
+   196 0000015B 415C                        pop r12
+   197 0000015D 5A                          pop rdx
+   198 0000015E 59                          pop rcx
+   199 0000015F 5B                          pop rbx
+   200 00000160 5D                          pop rbp
+   201 00000161 C3                          ret

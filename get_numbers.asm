@@ -87,7 +87,7 @@ get_loop:
     je end_get_loop
     
 not_empty_line:
-    ; Stomp newline
+    ; Stomps the newline
     cmp byte [input_buffer + r14 - 1], 0x0A
     jne not_newline
     mov byte [input_buffer + r14 - 1], 0
@@ -131,9 +131,7 @@ parse_loop:
     je hit_decimal
     
     ; It's a digit
-    mov rax, 10
-    mul rcx                     ; rax = rcx * 10
-    mov rcx, rax
+    imul rcx, rcx, 10
     
     movzx rax, byte [input_buffer + rbx]
     sub rax, '0'
