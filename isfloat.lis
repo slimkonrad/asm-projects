@@ -81,7 +81,7 @@
     81 00000019 9C                      pushf                                             ;Backup rflags
     82                                  
     83                                  
-    84                                  ;Make a copy of the passed in array of ascii values
+    84                                  ;this will make a copy of the passed in array of ascii values
     85 0000001A 4989FD                  mov r13, rdi                                      ;r13 is the array of char
     86                                  
     87                                  ;Let r14 be an index of the array r13.  Initialize to integer 0
@@ -97,7 +97,7 @@
     97                                  
     98                                  continue_validation:
     99                                  
-   100                                  ;Block: loop to validate chars before the decimal point
+   100                                  ;Block: it loops to validate chars before the decimal point
    101                                  loop_before_point:
    102 00000031 B800000000                 mov rax,0
    103 00000036 4831FF                     xor rdi,rdi                ;Zero out rdi
