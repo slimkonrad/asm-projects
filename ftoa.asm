@@ -26,7 +26,15 @@
 ;  Date of most recent update: Jan 20, 2025
 ;  Files: driver.cpp, ftoa.asm
 ;  Development computer: Intel Core i7-5820K running Xubuntu 24.04
-
+; //Contributions
+; //  [2024] Floyd Holliday:
+; //    - Initial creation of the module.
+; //    - Implemented logic to convert a float number into decimal based string formated representation of that number.
+; //
+; //  [2025] Konner Rigby:
+; //    - Implemented logic that takes care of potential cases such as trailing zeroes, incomplete user input, etc...
+; //      and then combines them for a more accurate result.
+; //
 ;Function ftoa information
 ;  Function name: ftoa, an acronym for Float to Analog.
 ;  Version number: 1.0
@@ -127,8 +135,8 @@ cvtsd2si rax,xmm6
 xor r12,r12
 
 ;Rename number_string as r13
-;mov r13, number_string
-lea r13, [rel number_string]
+mov r13, number_string
+
 
 beginleftsideofdot:
 
@@ -238,13 +246,6 @@ out_of_loop:
 append_null:   ;Append the null char
 mov byte [r13+r14],null
 inc r14
-
-;===== Block for debugging =====================================================
-;If deemed un-necessary, this block may be removed by a future programmer.
-;mov rax,0
-;mov rdi, numeric_message
-;mov rsi, r13
-;call printf
 
 mov rax,r13       ;Send the string back to the driver
 pop  r15

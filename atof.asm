@@ -2,49 +2,88 @@
 ; //Program name: "stringtof". This program will be called from _start.asm and will receive a char array. The program will then
 ; //               take that char array and convert it into a float number. It will then be returned to _start.asm as a float number (xmm)
 ; //               Copyright (C) 2022 Timothy Vu.
+; //               Copyright (C) 2025 Sara Sadek.
 ; //                                                                                                                           *
 ; //This file is part of the software program "stringtof".                                                                   *
 ; //stringtof is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License   *
 ; //version 3 as published by the Free Software Foundation.                                                                    *
 ; //stringtof is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied          *
 ; //warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
-
 ; //A copy of the GNU General Public License v3 is available here:  <https:;www.gnu.org/licenses/>.                            *
-
-
 ; //****************************************************************************************************************************
 ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
-
+;
 ; //Author information
 ; //  Author name: Timothy Vu
 ; //  Author email: timothy.vu@csu.fullerton.edu
-; //  Author Section: M/W 2:00pm-3:50pm
+; //
+; //  Author name: Sara Sadek
+; //  Author email: EBYEMJC1@csu.fullerton.edu
 ; //
 ; //Program information
 ; //  Program name: stringtof
-; //  Programming languages: seven modules in X86
+; //  Programming languages: X86 Assembly
 ; //  Date program began: 2022 October 23
-; //  Date of last update: 2022 October 26
-; //  Date of reorganization of comments: 2022 October 27
-; //  Files in this program: _start.asm, _math.asm, cosine.asm, ftoa.asm, itoa.asm, stringtof.asm strlen.asm
-; //  Status: Finished.  The program was tested extensively with no errors in Tuffix 2020 Edition.
+; //  Date of last update: 2025 November 01
+; //
+; //Contributions
+; //  [2022] Timothy Vu:
+; //    - Initial creation of the module.
+; //    - Implemented logic to convert a string to an integer and then to a float,
+; //      handling whole numbers and decimal places via integer arithmetic and division.
+; //
+; //  [2025] Sara Sadek:
+; //    - Rewrite of the conversion algorithm with the help and guidance of AI.
+; //    - Implemented a more robust method using direct floating-point (XMM) arithmetic and help from AI.
+; //    - The new logic separates the integer and fractional parts, processes them as floats,
+; //      and then combines them for a more accurate result.
+; //    - Renamed the function entry point from "stringtof" to "atof" to better reflect its C standard library equivalent.
+; //
+; //How to Contribute & Update License
+; //  If you make significant modifications to this file, please follow these steps to document your work.
+; //
+; //  For a New Author:
+; //  1. Add a new copyright line at the top: "; //               Copyright (C) [Year] [Your Name]."
+; //  2. Add your name and email under the "Author information" section.
+; //  3. Update the "Date of last update".
+; //  4. Add a new, year-stamped entry under the "Contributions" section detailing your changes.
+; //
+; //  For a Returning Author:
+; //  1. Update your existing copyright line with the new year of contribution.
+; //  2. Update the "Date of last update".
+; //  3. Add a new, year-stamped entry under the "Contributions" section for your latest changes.
+; //
+; //  Example for a Returning Author:
+; //  If Timothy Vu returns in 2027 to add a new feature, he would make the following changes:
+; //
+; //  1. Update the Copyright Line:
+; //     - FROM: "; //               Copyright (C) 2022 Timothy Vu."
+; //     - TO:   "; //               Copyright (C) 2022, 2027 Timothy Vu."
+; //
+; //  2. Update the Date:
+; //     - FROM: "; //  Date of last update: 2025 November 01"
+; //     - TO:   "; //  Date of last update: 2027 March 15" (or the current date)
+; //
+; //  3. Add to Contributions:
+; //     - ADD a new entry like this under his name:
+; //       ; //  [2027] Timothy Vu:
+; //       ; //    - Added support for scientific 'e' notation.
 ; //
 ; //Purpose
 ; //  The purpose of this file is to receive a char array, convert that array into a float number, and
-; //  return the result as a float number (xmm)
+; //  return the result as a float number (xmm0).
 ; //
 ; //This file
 ; //   File name: stringtof.asm
 ; //   Language: x86
 ; //   Max page width: 139 columns
 ; //   Compile: nasm -f elf64 -o stringtof.o -l stringtof.lis stringtof.asm
-; //   Linker: ld -o final.out _start.o strlen.o cosine.o itoa.o _math.o ftoa.o stringtof.o 
+; //   Linker: ld -o final.out _start.o strlen.o cosine.o itoa.o _math.o ftoa.o stringtof.o
 ; //
 ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
 ; //
 ; //
 ; //===== Begin code area ===========================================================================================================
-
 ;Assembler directives
 base_number equ 10                      ;10 base of the decimal number system
 ascii_zero equ 48                       ;48 is the ascii value of '0'
