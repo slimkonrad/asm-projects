@@ -1,0 +1,84 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //* Program name: Arrays of floats                                                                                         *
+     3                                  ; //* Copyright (C) 2025 Daniel Shively.                                                                                           *
+     4                                  ; //* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ; //* version 3 as published by the Free Software Foundation. This program is distributed in the hope that it will be useful,   *
+     6                                  ; //* but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See    *
+     7                                  ; //* the GNU General Public License for more details. A copy of the GNU General Public License v3 is available here:            *
+     8                                  ; //* https://www.gnu.org/licenses/.                                                                                           *
+     9                                  ; //****************************************************************************************************************************
+    10                                  
+    11                                  ; //========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3
+    12                                  ; // Author information
+    13                                  ; // Author: Daniel Shively
+    14                                  ; // Author Email: danielshively36@gmail.com
+    15                                  ; // CWID: 845182641
+    16                                  ; //
+    17                                  ; // Program information
+    18                                  ; //   Program name: Sum of Values
+    19                                  ; //   Programming languages: X86-64 Assembly
+    20                                  ; //   Date program began: 2025-Sep-15
+    21                                  ; //   Date of last update: 2025-Nov-02
+    22                                  ; //   Files in this program: arithmetic.asm, adder.asm, get_numbers.asm, display_array.asm, ftoa.asm, getline.asm, getchar.asm,
+    23                                  ; //   atof.asm, isfloat.asm, r.sh
+    24                                  ; //   Status: Ready for release.
+    25                                  ; //
+    26                                  ; // Purpose
+    27                                  ; //   This module reads a full line of text from standard input using syscalls.
+    28                                  ; //
+    29                                  ; // This file
+    30                                  ; //   File name: getline.asm
+    31                                  ; //   Language: x86-64 Assembly (NASM)
+    32                                  ; //   Compile: nasm -f elf64 -g -F dwarf -o getline.o getline.asm -l getline.lis
+    33                                  ; //   Purpose: Reads a line of text from stdin.
+    34                                  ; //========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3
+    35                                  
+    36                                  global getline
+    37                                  extern getchar
+    38                                  
+    39                                  segment .text
+    40                                  getline:
+    41                                      ; Prologue
+    42 00000000 55                          push rbp
+    43 00000001 4889E5                      mov rbp, rsp
+    44 00000004 4154                        push r12
+    45 00000006 4155                        push r13
+    46                                  
+    47                                      ; rdi = buffer pointer
+    48                                      ; rsi = max size
+    49 00000008 4989FC                      mov r12, rdi                ; Save buffer pointer
+    50 0000000B 41BD00000000                mov r13, 0                  ; index
+    51                                  
+    52                                  getline_read_loop:
+    53 00000011 E8(00000000)                call getchar
+    54                                      
+    55                                      ; Check for EOF (returns 0)
+    56 00000016 4883F800                    cmp rax, 0
+    57 0000001A 741B                        je getline_end_getline
+    58                                  
+    59                                      ; Check for newline (returns 0x0A)
+    60 0000001C 4883F80A                    cmp rax, 0x0A
+    61 00000020 740E                        je getline_store_newline_and_end
+    62                                  
+    63                                      ; Check buffer overflow
+    64 00000022 4939F5                      cmp r13, rsi
+    65 00000025 7D10                        jge getline_end_getline             ; Silently drop chars if buffer is full
+    66                                  
+    67                                      ; Store char
+    68 00000027 4388042C                    mov [r12 + r13], al
+    69 0000002B 49FFC5                      inc r13
+    70 0000002E EBE1                        jmp getline_read_loop
+    71                                  
+    72                                  getline_store_newline_and_end:
+    73 00000030 4388042C                    mov [r12 + r13], al         ; Store the newline
+    74 00000034 49FFC5                      inc r13
+    75                                  
+    76                                  getline_end_getline:
+    77 00000037 43C6042C00                  mov byte [r12 + r13], 0     ; Null terminate
+    78 0000003C 4C89E8                      mov rax, r13                ; Return number of chars read (including newline)
+    79                                  
+    80                                      ; Epilogue
+    81 0000003F 415D                        pop r13
+    82 00000041 415C                        pop r12
+    83 00000043 5D                          pop rbp
+    84 00000044 C3                          ret

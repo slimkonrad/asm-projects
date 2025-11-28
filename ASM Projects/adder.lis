@@ -1,0 +1,69 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;* Program name: Arrays of floats                                                                                          *
+     3                                  ;* Copyright (C) 2025 Daniel Shively.                                                                                      *
+     4                                  ;* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License *
+     5                                  ;* version 3 as published by the Free Software Foundation. This program is distributed in the hope that it will be useful,  *
+     6                                  ;* but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See   *
+     7                                  ;* the GNU General Public License for more details. A copy of the GNU General Public License v3 is available here:           *
+     8                                  ;* https://www.gnu.org/licenses/.                                                                                           *
+     9                                  ;****************************************************************************************************************************
+    10                                  
+    11                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3
+    12                                  ; Author information
+    13                                  ;   Author: Daniel Shively
+    14                                  ;   Email: danielshively36@gmail.com
+    15                                  ;   CWID: 845182641
+    16                                  ;
+    17                                  ; Program information
+    18                                  ;   Program name: Sum of Values
+    19                                  ;   Language: x86-64 Assembly (NASM)
+    20                                  ;   Date program began: 2025-Sep-15
+    21                                  ;   Date of last update: 2025-Nov-02
+    22                                  ;   Files: arithmetic.asm, adder.asm, get_numbers.asm, display_array.asm, ftoa.asm,
+    23                                  ;          getline.asm, getchar.asm, atof.asm, isfloat.asm, r.sh
+    24                                  ;   Status: Ready for release.
+    25                                  ;
+    26                                  ; Purpose:
+    27                                  ;   This module sums all the 64-bit floating-point numbers in a given array.
+    28                                  ;
+    29                                  ; File information:
+    30                                  ;   File name: adder.asm
+    31                                  ;   Compile: nasm -f elf64 -g -F dwarf -o adder.o adder.asm -l adder.lis
+    32                                  ;   Purpose: Sums the array of floats.
+    33                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3
+    34                                  
+    35                                  global adder
+    36                                  
+    37                                  segment .text
+    38                                  adder:
+    39                                      ; set up stack frame
+    40 00000000 55                          push rbp
+    41 00000001 4889E5                      mov rbp, rsp
+    42 00000004 4154                        push r12
+    43 00000006 4155                        push r13
+    44 00000008 4156                        push r14
+    45                                  
+    46                                      ; rdi = array pointer
+    47                                      ; rsi = count
+    48 0000000A 4989FC                      mov r12, rdi        ; save array pointer
+    49 0000000D 4989F5                      mov r13, rsi        ; save count
+    50 00000010 41BE00000000                mov r14, 0          ; index = 0
+    51 00000016 660F57C0                    xorpd xmm0, xmm0    ; sum = 0.0
+    52                                  
+    53                                  adder_sum_loop:
+    54 0000001A 4D39EE                      cmp r14, r13        ; check if index >= count
+    55 0000001D 7D0B                        jge adder_end_sum_loop
+    56                                  
+    57 0000001F F2430F5804F4                addsd xmm0, [r12 + r14 * 8] ; sum += array[i]
+    58 00000025 49FFC6                      inc r14             ; i++
+    59 00000028 EBF0                        jmp adder_sum_loop  ; continue loop
+    60                                  
+    61                                  adder_end_sum_loop:
+    62                                      ; result (sum) is in xmm0
+    63                                  
+    64                                      ; restore registers and return
+    65 0000002A 415E                        pop r14
+    66 0000002C 415D                        pop r13
+    67 0000002E 415C                        pop r12
+    68 00000030 5D                          pop rbp
+    69 00000031 C3                          ret

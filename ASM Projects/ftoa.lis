@@ -1,0 +1,259 @@
+     1                                  ;************************************************************************************************************
+     2                                  ;Program name: "Ftoa".  The long name of this progrtam is "Flote to Analog".  This program accepts a 64-bit *
+     3                                  ;float number in IEEE754 format and converts it decimal-based string-formated representation of that number.*
+     4                                  ;the lengths of two sides of that triangle.  The program makes use of several macros stored in a separate   *
+     5                                  ;Copyright (C) 2024 by Floyd Holliday                                                                       *
+     6                                  ;                                                                                                           *
+     7                                  ;This program is free software: you can redistribute it and/or modify it under the terms of the GNU General *
+     8                                  ;Public License version 3 as published by the Free Software Foundation.  This program is distributed in the *
+     9                                  ;hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY*
+    10                                  ;or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details  A copy of the   *
+    11                                  ;GNU General Public License v3 is available here:  <https://www.gnu.org/licenses/>.                         *
+    12                                  ;************************************************************************************************************
+    13                                  
+    14                                  ;This program is classified as a library program.  Any person may use it in his or her program provided that
+    15                                  ;the using program is also licensed by GPL3.  All other uses are illegal and the users will be prosecuted 
+    16                                  ;according to law.
+    17                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1
+    18                                  ;Author information
+    19                                  ;  Name: Floyd Holliday
+    20                                  ;  Contact: holliday@fullerton.edu
+    21                                  
+    22                                  ;Program information
+    23                                  ;  Program name: Test Ftoa
+    24                                  ;  Programming languages: X86 (ftoa),  C++ (driver)driver
+    25                                  ;  Date program development began Dec 28, 2024
+    26                                  ;  Date of most recent update: Jan 20, 2025
+    27                                  ;  Files: driver.cpp, ftoa.asm
+    28                                  ;  Development computer: Intel Core i7-5820K running Xubuntu 24.04
+    29                                  ; //Contributions
+    30                                  ; //  [2024] Floyd Holliday:
+    31                                  ; //    - Initial creation of the module.
+    32                                  ; //    - Implemented logic to convert a float number into decimal based string formated representation of that number.
+    33                                  ; //
+    34                                  ;Function ftoa information
+    35                                  ;  Function name: ftoa, an acronym for Float to Analog.
+    36                                  ;  Version number: 1.0
+    37                                  ;  Program classification: Library
+    38                                  ;  License: GPL3.  The other licesne LGPL3 was intentionally not applied in this case.
+    39                                  ;  Programming language: X86
+    40                                  ;  Syntax:  Intel
+    41                                  ;  Date development started: 2024-Dec-28
+    42                                  ;  Date of last update:      2025-Jan-20
+    43                                  ;  Assemble instruction: nasm -f elf64 -l ftoa.lis -o ftoa.o ftoa.asm
+    44                                  ;  Develop and test platform: Intel Core i7-5820K running Xubuntu 24.04
+    45                                  ;  Status: Final release.  The author will provide updates as bug fixes should any bugs occur.
+    46                                  ;  Prototype of this function:  char * ftoa(double floatnum);
+    47                                  
+    48                                  ;Background
+    49                                  ;  Floating-point numbers in most modern computers are stored in a format known as IEEE754.  For example, a 
+    50                                  ;number like 4.1 appears to humans a two decimal digits.  But the machine does not store a 4 and a 1.  The 
+    51                                  ;machine holds a binary representation of the number that is somewhat akin to 4.0999999999.  When a float 
+    52                                  ;number 4.1 is passed to the function ftoa, the function is actually receiving 4.099999.  This function 
+    53                                  ;ftoa will act on the internal numberic representation given to it.  In the example, the machine has no 
+    54                                  ;knowlege of 4.1 but does have 4.099999999.  We will see this reflected in the outputs produced by ftoa.
+    55                                  
+    56                                  ;Prototype of ftoa:  char * ftoa(double x);
+    57                                  ;ftoa may be called from C++, C, or X86.
+    58                                  
+    59                                  ;Terminology:  Consider the floating point number  385.6291.   The group 385 is called the integral part and 
+    60                                  ;the group 6291 is called the fractional part.
+    61                                  
+    62                                  ;About the string length of the returned C-string.  The programmer or user of ftoa should set the length of
+    63                                  ;returned C-string by adjusting the constant string_len declared in the Declaration section below.  A small value
+    64                                  ;less than say 5 will not produce meaningful values.  The constant should be re-set to meet the needs of the 
+    65                                  ;current user.
+    66                                  
+    67                                  ;No AI was used in the construction of this library function ftoa.  The source files driver.cpp and ftoa.asm are
+    68                                  ;formatted for understandability by beginning students of computer science.
+    69                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2
+    70                                  
+    71                                  ;===== Begin Code ======================================================================================
+    72                                  
+    73                                  ;Declarations
+    74                                  ascii_zero equ 48
+    75                                  ascii_dot equ  46
+    76                                  integer_ten equ 10
+    77                                  string_len equ 16	;The next programmer should take charge of setting string length
+    78                                  null equ 0
+    79                                  global ftoa
+    80                                  ;extern printf           ;printf was used for debugging; now it can be safely removed
+    81                                  
+    82                                  
+    83                                  segment .data
+    84 00000000 54686520737472696E-        numeric_message db "The string at this point is %s",10,0
+    84 00000009 672061742074686973-
+    84 00000012 20706F696E74206973-
+    84 0000001B 2025730A00         
+    85 00000020 6F6E6500                   mark db "one",0
+    86                                  
+    87                                  segment .bss
+    88 00000000 <res 10h>                  number_string resb string_len
+    89                                  
+    90                                  segment .text
+    91                                  ftoa:
+    92                                  
+    93                                  ;Alert: The GPRs and the SSE registers have not been backed up.
+    94 00000000 55                      push rbp
+    95 00000001 4889E5                      mov  rbp, rsp
+    96 00000004 53                          push rbx                
+    97 00000005 4154                        push r12
+    98 00000007 4155                        push r13
+    99 00000009 4156                        push r14
+   100 0000000B 4157                        push r15
+   101                                      ;
+   102                                  ;Copy the passed in float number to xmm8
+   103 0000000D F2440F10C0              movsd xmm8,xmm0
+   104                                  
+   105                                  ;Backup of GPRs was omitted
+   106                                  
+   107                                  
+   108                                  ;=========================================================================
+   109                                  ;Determine the sign of the incoming number.  r15 is the sign flag.
+   110 00000012 41BF00000000            mov r15,0
+   111 00000018 660F57C0                xorpd xmm0,xmm0     ;Create a temporary zero in xmm0
+   112 0000001C 66440F2EC0              ucomisd xmm8,xmm0
+   113 00000021 7706                    ja continue
+   114 00000023 41BF01000000            mov r15,1
+   115                                  continue:    ;Now r15=0 if xmm8 >=0.0 and f15=1 if xmm8 <0.0
+   116                                  
+   117                                  ;Block to replace xmm8 with its absolute value
+   118 00000029 660F57C0                xorpd xmm0,xmm0
+   119 0000002D F2410F5CC0              subsd xmm0,xmm8
+   120 00000032 F2440F5FC0              maxsd xmm8,xmm0
+   121                                  ;============================================================================
+   122                                  
+   123                                  
+   124                                  
+   125                                  
+   126                                  ;Remove the integral part of xmm8 and save that part as an unsigned integer in rax
+   127 00000037 66410F3A0BF003          roundsd xmm6,xmm8,3
+   128 0000003E F2480F2DC6              cvtsd2si rax,xmm6
+   129                                  
+   130                                  ;r12 will count the number of digits in the integral part
+   131 00000043 4D31E4                  xor r12,r12
+   132                                  
+   133                                  ;Rename number_string as r13
+   134 00000046 49BD-                   mov r13, number_string
+   134 00000048 [0000000000000000] 
+   135                                  
+   136                                  
+   137                                  beginleftsideofdot:
+   138                                  
+   139 00000050 4983FC0F                cmp r12,string_len-1   ;Check for space available in the string r13
+   140 00000054 0F8DCA000000            jge append_null
+   141 0000005A 4883F800                cmp rax,0       ;If rax == 0 then break out of the loop
+   142 0000005E 7411                      je outofloop
+   143 00000060 4899                      cqo
+   144 00000062 41BA0A000000              mov r10,integer_ten
+   145 00000068 49F7F2                    div r10        ;integer_ten
+   146 0000006B 52                        push rdx       ;Push the remainder value
+   147 0000006C 49FFC4                    inc r12
+   148 0000006F EBDF                      jmp beginleftsideofdot
+   149                                  outofloop:
+   150                                    ;rax is now 0; r12 has counted the number of pushes onto the stack
+   151                                  
+   152                                    ;Let r14 be the index into the array r13
+   153 00000071 4D31F6                    xor r14,r14
+   154                                  
+   155                                  
+   156                                  
+   157                                  ;  ;Begin block of inserted code=============================================================
+   158                                  ;If the original number is negative then place a negative sign in the first byte of the array r13
+   159 00000074 4983FF00                  cmp r15,0
+   160 00000078 740B                      je positive
+   161 0000007A 41C645002D                mov byte [r13],'-'
+   162 0000007F 49FFC6                    inc r14
+   163 00000082 49FFC4                    inc r12       ;<== New insert instruction to execute in the negative case only
+   164                                    ;End block of inserted code==================================================================
+   165                                  
+   166                                  positive:
+   167                                  
+   168                                    ;Begin loop that transferrs pushed values to the string r13
+   169                                  
+   170                                  leftsideofdot:
+   171 00000085 4983FE10                  cmp r14,string_len
+   172 00000089 0F8D95000000              jge append_null
+   173 0000008F 4D39E6                    cmp r14,r12
+   174 00000092 7D0D                      jge appenddot
+   175 00000094 58                        pop rax              ;The number popped is one of the decimal digits: 0..9
+   176 00000095 0430                      add al,ascii_zero                ;48 equals the ascii value of zero
+   177 00000097 4388443500                mov byte [r13+r14],al
+   178 0000009C 49FFC6                    inc r14
+   179 0000009F EBE4                    jmp leftsideofdot
+   180                                  
+   181                                  appenddot:
+   182                                  
+   183                                  ;Append one dot
+   184 000000A1 43C64435002E            mov byte [r13+r14],ascii_dot
+   185 000000A7 49FFC6                  inc r14
+   186                                  
+   187                                  ;Begin block that converts the fractional part of the original float to the array of chars
+   188                                  
+   189                                  ;Subtract the whole part from the original number leaving only the fractional part in xmm8.
+   190 000000AA F2440F5CC6              subsd xmm8,xmm6
+   191                                  
+   192                                  ;Establish the constant 10.0 (ten decimal float)
+   193 000000AF 41BA0A000000            mov r10,10
+   194 000000B5 F24D0F2AD2              cvtsi2sd xmm10,r10          ;xmm10 is the constant 10.0
+   195                                  
+   196                                  begin_fractional_loop:      ;Loop with many iterations
+   197                                  
+   198                                  ;If the fractional part is 0.0, it is time to leave this loop.
+   199 000000BA 660F57C0                xorpd xmm0,xmm0
+   200 000000BE 66440F2EC0              ucomisd xmm8,xmm0
+   201 000000C3 742A                    je out_of_loop
+   202                                  
+   203                                  ;If there is no available space in the destination array r13 then this loop must stop.
+   204 000000C5 4983FE0F                cmp r14, string_len-1
+   205 000000C9 7D24                    jge out_of_loop
+   206                                  
+   207 000000CB F2450F59C2              mulsd xmm8,xmm10
+   208 000000D0 66450F3A0BC803          roundsd xmm9,xmm8,3
+   209 000000D7 F24D0F2DC9              cvtsd2si r9,xmm9
+   210 000000DC 4983C130                add r9,ascii_zero
+   211 000000E0 47884C3500              mov [r13+r14],r9b
+   212 000000E5 49FFC6                  inc r14
+   213 000000E8 F2450F5CC1              subsd xmm8,xmm9         ;<==Remove the whole number part from xmm8
+   214                                  
+   215 000000ED EBCB                    jmp begin_fractional_loop    ;Bottom of loop with many iterations
+   216                                  
+   217                                  out_of_loop:
+   218                                      ; --- trim trailing zeros from fractional part ---
+   219                                  .trim:
+   220 000000EF 4983FE00                    cmp r14, 0
+   221 000000F3 7418                        je  .maybe_add_zero
+   222 000000F5 43807C35FF30                cmp byte [r13 + r14 - 1], '0'
+   223 000000FB 7505                        jne .check_dot
+   224 000000FD 49FFCE                      dec r14
+   225 00000100 EBED                        jmp .trim
+   226                                  
+   227                                  .check_dot:
+   228                                      ; if we stopped on '.', drop it (e.g., "10." -> "10")
+   229 00000102 43807C35FF2E                cmp byte [r13 + r14 - 1], ascii_dot
+   230 00000108 7503                        jne .maybe_add_zero
+   231 0000010A 49FFCE                      dec r14
+   232                                  
+   233                                  .maybe_add_zero:
+   234                                      ; if the last char is a '.', append a single '0' (e.g., "4." -> "4.0")
+   235 0000010D 4983FE00                    cmp r14, 0
+   236 00000111 7411                        je  append_null
+   237 00000113 43807C35FF2E                cmp byte [r13 + r14 - 1], ascii_dot
+   238 00000119 7509                        jne append_null
+   239 0000011B 43C644350030                mov byte [r13 + r14], ascii_zero
+   240 00000121 49FFC6                      inc r14
+   241                                  
+   242                                  append_null:   ;Append the null char
+   243 00000124 43C644350000            mov byte [r13+r14],null
+   244 0000012A 49FFC6                  inc r14
+   245                                  
+   246 0000012D 4C89E8                  mov rax,r13       ;Send the string back to the driver
+   247 00000130 415F                    pop  r15
+   248 00000132 415E                        pop  r14
+   249 00000134 415D                        pop  r13
+   250 00000136 415C                        pop  r12
+   251 00000138 5B                          pop  rbx
+   252 00000139 5D                          pop  rbp
+   253 0000013A C3                      ret
+   254                                  
+   255                                  ;===== End of source code =================================================

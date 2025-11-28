@@ -1,0 +1,71 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //* Program name: Arrays of floats                                                                                         *
+     3                                  ; //* Copyright (C) 2025 Daniel Shively.                                                                                           *
+     4                                  ; //* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ; //* version 3 as published by the Free Software Foundation. This program is distributed in the hope that it will be useful,   *
+     6                                  ; //* but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See    *
+     7                                  ; //* the GNU General Public License for more details. A copy of the GNU General Public License v3 is available here:            *
+     8                                  ; //* https://www.gnu.org/licenses/.                                                                                           *
+     9                                  ; //****************************************************************************************************************************
+    10                                  
+    11                                  ; //========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3
+    12                                  ; // Author information
+    13                                  ; // Author: Daniel Shively
+    14                                  ; // Author Email: danielshively36@gmail.com
+    15                                  ; // CWID: 845182641
+    16                                  ; //
+    17                                  ; // Program information
+    18                                  ; //   Program name: Sum of Values
+    19                                  ; //   Programming languages: X86-64 Assembly
+    20                                  ; //   Date program began: 2025-Sep-15
+    21                                  ; //   Date of last update: 2025-Nov-02
+    22                                  ; //   Files in this program: arithmetic.asm, adder.asm, get_numbers.asm, display_array.asm, ftoa.asm, getline.asm, getchar.asm,
+    23                                  ; //   atof.asm, isfloat.asm, r.sh
+    24                                  ; //   Status: Ready for release.
+    25                                  ; //
+    26                                  ; // Purpose
+    27                                  ; //   This module reads a single character from standard input using a Linux syscall.
+    28                                  ; //
+    29                                  ; // This file
+    30                                  ; //   File name: getchar.asm
+    31                                  ; //   Language: x86-64 Assembly (NASM)
+    32                                  ; //   Compile: nasm -f elf64 -g -F dwarf -o getchar.o getchar.asm -l getchar.lis
+    33                                  ; //   Purpose: Reads a single character from stdin.
+    34                                  ; //========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3
+    35                                  
+    36                                  global getchar
+    37                                  
+    38                                  segment .bss
+    39 00000000 ??                          char_buffer: resb 1
+    40                                  
+    41                                  segment .text
+    42                                  getchar:
+    43                                      ; Prologue
+    44 00000000 55                          push rbp
+    45 00000001 4889E5                      mov rbp, rsp
+    46                                  
+    47                                      ; Syscall read
+    48 00000004 B800000000                  mov rax, 0                  ; sys_read
+    49 00000009 BF00000000                  mov rdi, 0                  ; stdin
+    50 0000000E 48BE-                       mov rsi, char_buffer
+    50 00000010 [0000000000000000] 
+    51 00000018 BA01000000                  mov rdx, 1                  ; Read 1 byte
+    52 0000001D 0F05                        syscall
+    53                                  
+    54                                      ; rax = bytes read
+    55                                      ; If 0 or less (EOF/error), return 0
+    56 0000001F 4883F800                    cmp rax, 0
+    57 00000023 7E0B                        jle getchar_return_eof
+    58                                  
+    59                                      ; Success, return the character
+    60 00000025 480FB60425-                 movzx rax, byte [char_buffer]
+    60 0000002A [00000000]         
+    61 0000002E EB03                        jmp getchar_end
+    62                                  
+    63                                  getchar_return_eof:
+    64 00000030 4831C0                      xor rax, rax                ; Return 0 for EOF
+    65                                  
+    66                                  getchar_end:
+    67                                      ; Epilogue
+    68 00000033 5D                          pop rbp
+    69 00000034 C3                          ret

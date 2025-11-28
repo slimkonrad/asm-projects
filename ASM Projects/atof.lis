@@ -1,0 +1,238 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //Program name: "stringtof". This program will be called from _start.asm and will receive a char array. The program will then
+     3                                  ; //               take that char array and convert it into a float number. It will then be returned to _start.asm as a float number (xmm)
+     4                                  ; //               Copyright (C) 2022 Timothy Vu.
+     5                                  ; //               Copyright (C) 2025 Sara Sadek.
+     6                                  ; //                                                                                                                           *
+     7                                  ; //This file is part of the software program "stringtof".                                                                   *
+     8                                  ; //stringtof is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License   *
+     9                                  ; //version 3 as published by the Free Software Foundation.                                                                    *
+    10                                  ; //stringtof is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied          *
+    11                                  ; //warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.     *
+    12                                  ; //A copy of the GNU General Public License v3 is available here:  <https:;www.gnu.org/licenses/>.                            *
+    13                                  ; //****************************************************************************************************************************
+    14                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+    15                                  ;
+    16                                  ; //Author information
+    17                                  ; //  Author name: Timothy Vu
+    18                                  ; //  Author email: timothy.vu@csu.fullerton.edu
+    19                                  ; //
+    20                                  ; //  Author name: Sara Sadek
+    21                                  ; //  Author email: EBYEMJC1@csu.fullerton.edu
+    22                                  ; //
+    23                                  ; //Program information
+    24                                  ; //  Program name: stringtof
+    25                                  ; //  Programming languages: X86 Assembly
+    26                                  ; //  Date program began: 2022 October 23
+    27                                  ; //  Date of last update: 2025 November 01
+    28                                  ; //
+    29                                  ; //Contributions
+    30                                  ; //  [2022] Timothy Vu:
+    31                                  ; //    - Initial creation of the module.
+    32                                  ; //    - Implemented logic to convert a string to an integer and then to a float,
+    33                                  ; //      handling whole numbers and decimal places via integer arithmetic and division.
+    34                                  ; //
+    35                                  ; //  [2025] Sara Sadek:
+    36                                  ; //    - Rewrite of the conversion algorithm with the help and guidance of AI.
+    37                                  ; //    - Implemented a more robust method using direct floating-point (XMM) arithmetic and help from AI.
+    38                                  ; //    - The new logic separates the integer and fractional parts, processes them as floats,
+    39                                  ; //      and then combines them for a more accurate result.
+    40                                  ; //    - Renamed the function entry point from "stringtof" to "atof" to better reflect its C standard library equivalent.
+    41                                  ; //
+    42                                  ; //How to Contribute & Update License
+    43                                  ; //  If you make significant modifications to this file, please follow these steps to document your work.
+    44                                  ; //
+    45                                  ; //  For a New Author:
+    46                                  ; //  1. Add a new copyright line at the top: "; //               Copyright (C) [Year] [Your Name]."
+    47                                  ; //  2. Add your name and email under the "Author information" section.
+    48                                  ; //  3. Update the "Date of last update".
+    49                                  ; //  4. Add a new, year-stamped entry under the "Contributions" section detailing your changes.
+    50                                  ; //
+    51                                  ; //  For a Returning Author:
+    52                                  ; //  1. Update your existing copyright line with the new year of contribution.
+    53                                  ; //  2. Update the "Date of last update".
+    54                                  ; //  3. Add a new, year-stamped entry under the "Contributions" section for your latest changes.
+    55                                  ; //
+    56                                  ; //  Example for a Returning Author:
+    57                                  ; //  If Timothy Vu returns in 2027 to add a new feature, he would make the following changes:
+    58                                  ; //
+    59                                  ; //  1. Update the Copyright Line:
+    60                                  ; //     - FROM: "; //               Copyright (C) 2022 Timothy Vu."
+    61                                  ; //     - TO:   "; //               Copyright (C) 2022, 2027 Timothy Vu."
+    62                                  ; //
+    63                                  ; //  2. Update the Date:
+    64                                  ; //     - FROM: "; //  Date of last update: 2025 November 01"
+    65                                  ; //     - TO:   "; //  Date of last update: 2027 March 15" (or the current date)
+    66                                  ; //
+    67                                  ; //  3. Add to Contributions:
+    68                                  ; //     - ADD a new entry like this under his name:
+    69                                  ; //       ; //  [2027] Timothy Vu:
+    70                                  ; //       ; //    - Added support for scientific 'e' notation.
+    71                                  ; //
+    72                                  ; //Purpose
+    73                                  ; //  The purpose of this file is to receive a char array, convert that array into a float number, and
+    74                                  ; //  return the result as a float number (xmm0).
+    75                                  ; //
+    76                                  ; //This file
+    77                                  ; //   File name: stringtof.asm
+    78                                  ; //   Language: x86
+    79                                  ; //   Max page width: 139 columns
+    80                                  ; //   Compile: nasm -f elf64 -o stringtof.o -l stringtof.lis stringtof.asm
+    81                                  ; //   Linker: ld -o final.out _start.o strlen.o cosine.o itoa.o _math.o ftoa.o stringtof.o
+    82                                  ; //
+    83                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    84                                  ; //
+    85                                  ; //
+    86                                  ; //===== Begin code area ===========================================================================================================
+    87                                  ;Assembler directives
+    88                                  base_number equ 10                      ;10 base of the decimal number system
+    89                                  ascii_zero equ 48                       ;48 is the ascii value of '0'
+    90                                  null equ 0
+    91                                  minus equ '-'
+    92                                  decimal_point equ '.'
+    93                                  
+    94                                  ;Global declaration for linking files.
+    95                                  global atof                          ;This makes atolong callable by functions outside of this file.
+    96                                  
+    97                                  segment .data                           ;Place initialized data here
+    98                                     ;This segment is empy
+    99 00000000 0000000000002440            ten_float   dq 10.0     ; Floating point constant for 10.0
+   100 00000008 000000000000F0BF            minus_one   dq -1.0     ; Floating point constant for -1.0
+   101                                  
+   102                                  segment .bss                            ;Declare pointers to un-initialized space in this segment.
+   103                                     ;This segment is empty
+   104                                  
+   105                                  ;==============================================================================================================================
+   106                                  ;===== Begin the executable code here.
+   107                                  ;==============================================================================================================================
+   108                                  segment .text                           ;Place executable instructions in this segment.
+   109                                  
+   110                                  atof:                                ;Entry point.  Execution begins here.
+   111                                  
+   112                                  ;The next two instructions should be performed at the start of every assembly program.
+   113 00000000 55                      push rbp                                ;This marks the start of a new stack frame belonging to this execution of this function.
+   114 00000001 4889E5                  mov  rbp, rsp                           ;rbp holds the address of the start of this new stack frame.
+   115                                  ;The following pushes are performed for safety of the data that may already be in the remaining GPRs.
+   116                                  ;This backup process is especially important when this module is called by another asm module.  It is less important when called
+   117                                  ;called from a C or C++ function.
+   118 00000004 53                      push rbx
+   119 00000005 51                      push rcx
+   120 00000006 52                      push rdx
+   121 00000007 57                      push rdi
+   122 00000008 56                      push rsi
+   123 00000009 4150                    push r8
+   124 0000000B 4151                    push r9
+   125 0000000D 4152                    push r10
+   126 0000000F 4153                    push r11
+   127 00000011 4154                    push r12
+   128 00000013 4155                    push r13
+   129 00000015 4156                    push r14
+   130 00000017 4157                    push r15
+   131 00000019 9C                      pushf
+   132                                  
+   133                                  
+   134                                   ; rdi = pointer to the input string
+   135 0000001A 4831F6                      xor     rsi, rsi            ; rsi = index into the string, starts at 0
+   136 0000001D 4D31E4                      xor     r12, r12            ; r12b will be our neg_flag (0 = positive, 1 = negative)
+   137 00000020 660F57C0                    xorpd   xmm0, xmm0          ; xmm0 will hold the integer part of the number
+   138 00000024 660F57C9                    xorpd   xmm1, xmm1          ; xmm1 will hold the fractional part of the number
+   139                                  
+   140                                      ; --- 1. Handle Sign ---
+   141 00000028 803C372D                    cmp     byte [rdi + rsi], '-'
+   142 0000002C 7508                        jne     check_positive_sign
+   143 0000002E 41B401                      mov     r12b, 1             ; Set neg_flag
+   144 00000031 48FFC6                      inc     rsi                 ; Move to the next character
+   145 00000034 EB09                        jmp     integer_loop_start
+   146                                  
+   147                                  check_positive_sign:
+   148 00000036 803C372B                    cmp     byte [rdi + rsi], '+'
+   149 0000003A 7503                        jne     integer_loop_start
+   150 0000003C 48FFC6                      inc     rsi                 ; Move to the next character
+   151                                  
+   152                                      ; --- 2. Process Integer Part ---
+   153                                  integer_loop_start:
+   154                                      ; Check if the current character is a digit
+   155 0000003F 480FB60437                  movzx   rax, byte [rdi + rsi]
+   156 00000044 4883F830                    cmp     rax, '0'
+   157 00000048 7C21                        jl      handle_decimal_point ; If less than '0', it's not a digit
+   158 0000004A 4883F839                    cmp     rax, '9'
+   159 0000004E 7F1B                        jg      handle_decimal_point ; If greater than '9', it's not a digit
+   160                                  
+   161                                      ; It is a digit, so process it
+   162                                      ; xmm0 = xmm0 * 10.0
+   163 00000050 F20F590425-                 mulsd   xmm0, [ten_float]
+   163 00000055 [00000000]         
+   164                                  
+   165                                      ; Convert char to integer ('5' -> 5)
+   166 00000059 4883E830                    sub     rax, '0'
+   167                                  
+   168                                      ; Convert integer to float and add to our total
+   169 0000005D F2480F2AD0                  cvtsi2sd xmm2, rax          ; xmm2 = (double)rax
+   170 00000062 F20F58C2                    addsd   xmm0, xmm2          ; xmm0 = xmm0 + new_digit
+   171                                  
+   172 00000066 48FFC6                      inc     rsi
+   173 00000069 EBD4                        jmp     integer_loop_start
+   174                                  
+   175                                      ; --- 3. Handle Decimal Point ---
+   176                                  handle_decimal_point:
+   177 0000006B 803C372E                    cmp     byte [rdi + rsi], '.'
+   178 0000006F 7543                        jne     combine_parts       ; If not a decimal, we are done parsing
+   179 00000071 48FFC6                      inc     rsi                 ; Move past the '.'
+   180                                  
+   181                                      ; --- 4. Process Fractional Part ---
+   182                                      ; Setup for the fractional loop
+   183 00000074 49BD-                       mov     r13, ten_float      ; Use memory address of 10.0
+   183 00000076 [0000000000000000] 
+   184 0000007E F2410F105D00                movsd   xmm3, [r13]         ; xmm3 = divisor, starting at 10.0
+   185                                  
+   186                                  fractional_loop_start:
+   187                                      ; Check if the current character is a digit
+   188 00000084 480FB60437                  movzx   rax, byte [rdi + rsi]
+   189 00000089 4883F830                    cmp     rax, '0'
+   190 0000008D 7C25                        jl      combine_parts       ; Not a digit, finish up
+   191 0000008F 4883F839                    cmp     rax, '9'
+   192 00000093 7F1F                        jg      combine_parts       ; Not a digit, finish up
+   193                                  
+   194                                      ; It's a digit, process it
+   195 00000095 4883E830                    sub     rax, '0'            ; Convert char to integer
+   196 00000099 F2480F2AD0                  cvtsi2sd xmm2, rax          ; Convert integer to float (e.g., 7 -> 7.0)
+   197                                  
+   198 0000009E F20F5ED3                    divsd   xmm2, xmm3          ; xmm2 = digit / divisor (e.g., 7.0 / 10.0 = 0.7)
+   199 000000A2 F20F58CA                    addsd   xmm1, xmm2          ; Add to fractional total
+   200                                  
+   201 000000A6 F20F591C25-                 mulsd   xmm3, [ten_float]   ; Update divisor for next digit (10 -> 100 -> 1000)
+   201 000000AB [00000000]         
+   202 000000AF 48FFC6                      inc     rsi
+   203 000000B2 EBD0                        jmp     fractional_loop_start
+   204                                  
+   205                                      ; --- 5. Final Combination ---
+   206                                  combine_parts:
+   207 000000B4 F20F58C1                    addsd   xmm0, xmm1          ; Final number = integer part + fractional part
+   208                                  
+   209                                      ; Apply the negative sign if the flag was set
+   210 000000B8 4180FC01                    cmp     r12b, 1
+   211 000000BC 7509                        jne     epilogue
+   212 000000BE F20F590425-                 mulsd   xmm0, [minus_one]   ; Make the number negative
+   212 000000C3 [08000000]         
+   213                                  
+   214                                  
+   215                                  epilogue:
+   216                                  ;==================================================================================================================================
+   217                                  ;Epilogue: restore data to the values held before this function was called.
+   218 000000C7 9D                      popf
+   219 000000C8 415F                    pop r15
+   220 000000CA 415E                    pop r14
+   221 000000CC 415D                    pop r13
+   222 000000CE 415C                    pop r12
+   223 000000D0 415B                    pop r11
+   224 000000D2 415A                    pop r10
+   225 000000D4 4159                    pop r9
+   226 000000D6 4158                    pop r8
+   227 000000D8 5E                      pop rsi
+   228 000000D9 5F                      pop rdi
+   229 000000DA 5A                      pop rdx
+   230 000000DB 59                      pop rcx
+   231 000000DC 5B                      pop rbx
+   232 000000DD 5D                      pop rbp                       ;Now the system stack is in the same state it was when this function began execution.
+   233 000000DE C3                      ret                           ;Pop a qword from the stack into rip, and continue executing..
+   234                                  ;========== End of module atol.asm ================================================================================================; //****************************************************************************************************************************

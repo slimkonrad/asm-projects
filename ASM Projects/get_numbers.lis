@@ -1,0 +1,134 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //* Program name: Arrays of floats                                                                                         *
+     3                                  ; //* Copyright (C) 2025 Daniel Shively.                                                                                           *
+     4                                  ; //* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ; //* version 3 as published by the Free Software Foundation. This program is distributed in the hope that it will be useful,   *
+     6                                  ; //* but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See    *
+     7                                  ; //* the GNU General Public License for more details. A copy of the GNU General Public License v3 is available here:            *
+     8                                  ; //* https://www.gnu.org/licenses/.                                                                                           *
+     9                                  ; //****************************************************************************************************************************
+    10                                  
+    11                                  ; //========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3
+    12                                  ; // Author information
+    13                                  ; // Author: Daniel Shively
+    14                                  ; // Author Email: danielshively36@gmail.com
+    15                                  ; // CWID: 845182641
+    16                                  ; //
+    17                                  ; // Program information
+    18                                  ; //   Program name: Sum of Values
+    19                                  ; //   Programming languages: X86-64 Assembly
+    20                                  ; //   Date program began: 2025-Sep-15
+    21                                  ; //   Date of last update: 2025-Nov-02
+    22                                  ; //   Files in this program: arithmetic.asm, adder.asm, get_numbers.asm, display_array.asm, ftoa.asm, getline.asm, getchar.asm,
+    23                                  ; //   atof.asm, isfloat.asm, r.sh
+    24                                  ; //   Status: Ready for release.
+    25                                  ; //
+    26                                  ; // Purpose
+    27                                  ; //   This module manages the user input loop for gathering float numbers.
+    28                                  ; //
+    29                                  ; // This file
+    30                                  ; //   File name: get_numbers.asm
+    31                                  ; //   Language: x86-64 Assembly (NASM)
+    32                                  ; //   Compile: nasm -f elf64 -g -F dwarf -o get_numbers.o get_numbers.asm -l get_numbers.lis
+    33                                  ; //   Purpose: Reads, validates, and stores floats in an array.
+    34                                  ; //========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3
+    35                                  
+    36                                  global get_numbers
+    37                                  
+    38                                  extern getline
+    39                                  extern isfloat
+    40                                  extern atof
+    41                                  
+    42                                  segment .data
+    43 00000000 496E76616C69642066-         invalid_msg: db "Invalid float. Please try again.", 0x0A, 0
+    43 00000009 6C6F61742E20506C65-
+    43 00000012 617365207472792061-
+    43 0000001B 6761696E2E0A00     
+    44                                      invalid_len: equ $ - invalid_msg
+    45                                  
+    46                                  segment .bss
+    47 00000000 <res 64h>                   input_buffer: resb 100
+    48                                  
+    49                                  segment .text
+    50                                  get_numbers:
+    51                                      ; Prologue
+    52 00000000 55                          push rbp
+    53 00000001 4889E5                      mov rbp, rsp
+    54 00000004 4154                        push r12
+    55 00000006 4155                        push r13
+    56 00000008 4156                        push r14
+    57 0000000A 4157                        push r15
+    58                                  
+    59                                      ; rdi = array pointer
+    60                                      ; rsi = max numbers
+    61 0000000C 4989FC                      mov r12, rdi                ; array pointer
+    62 0000000F 41BD00000000                mov r13, 0                  ; number count (index)
+    63 00000015 4989F7                      mov r15, rsi                ; max numbers
+    64                                  
+    65                                  get_loop:
+    66 00000018 4D39FD                      cmp r13, r15                ; count < max
+    67 0000001B 0F8D87000000                jge end_get_loop
+    68                                  
+    69                                      ; Get line
+    70 00000021 48BF-                       mov rdi, input_buffer
+    70 00000023 [0000000000000000] 
+    71 0000002B BE64000000                  mov rsi, 100
+    72 00000030 E8(00000000)                call getline
+    73 00000035 4989C6                      mov r14, rax                ; Save length in r14
+    74                                  
+    75                                      ; Check for EOF (Ctrl+D) ONLY
+    76 00000038 4983FE00                    cmp r14, 0
+    77 0000003C 746A                        je end_get_loop
+    78                                      
+    79                                  not_empty_line:
+    80                                      ; Stomp newline
+    81 0000003E 4180BE[FFFFFFFF]0A          cmp byte [input_buffer + r14 - 1], 0x0A
+    82 00000046 750B                        jne not_newline
+    83 00000048 41C686[FFFFFFFF]00          mov byte [input_buffer + r14 - 1], 0
+    84 00000050 49FFCE                      dec r14
+    85                                      not_newline:
+    86                                  
+    87                                      ; Check for empty string *after stomping newline*
+    88 00000053 4983FE00                    cmp r14, 0
+    89 00000057 742F                        je invalid_input
+    90                                  
+    91                                      ; Validate float
+    92                                      ; isfloat saves and restores all GPRs
+    93 00000059 48BF-                       mov rdi, input_buffer
+    93 0000005B [0000000000000000] 
+    94 00000063 E8(00000000)                call isfloat
+    95                                      
+    96 00000068 4883F800                    cmp rax, 0                  ; Check if false
+    97 0000006C 741A                        je invalid_input
+    98                                  
+    99                                      ; --- Valid float, convert ---
+   100                                      ; stringtof (atof) saves and restores all GPRs
+   101 0000006E 48BF-                       mov rdi, input_buffer
+   101 00000070 [0000000000000000] 
+   102 00000078 E8(00000000)                call atof
+   103                                      
+   104                                      ; Store float in array
+   105 0000007D F2430F1104EC                movsd [r12 + r13 * 8], xmm0 
+   106 00000083 49FFC5                      inc r13
+   107 00000086 EB90                        jmp get_loop
+   108                                  
+   109                                  invalid_input:
+   110                                      ; Print "Invalid float"
+   111 00000088 B801000000                  mov rax, 1
+   112 0000008D BF01000000                  mov rdi, 1
+   113 00000092 48BE-                       mov rsi, invalid_msg
+   113 00000094 [0000000000000000] 
+   114 0000009C BA22000000                  mov rdx, invalid_len
+   115 000000A1 0F05                        syscall
+   116 000000A3 E970FFFFFF                  jmp get_loop
+   117                                  
+   118                                  end_get_loop:
+   119 000000A8 4C89E8                      mov rax, r13                ; Return number of floats read
+   120                                  
+   121                                      ; Epilogue
+   122 000000AB 415F                        pop r15
+   123 000000AD 415E                        pop r14
+   124 000000AF 415D                        pop r13
+   125 000000B1 415C                        pop r12
+   126 000000B3 5D                          pop rbp
+   127 000000B4 C3                          ret

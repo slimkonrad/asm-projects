@@ -1,0 +1,66 @@
+     1                                  ; //****************************************************************************************************************************
+     2                                  ; //Program name: "adder". This program receives a pointer to an array of 64-bit floats and a count.
+     3                                  ; //              It sums all the floats in the array and returns the result in xmm0.
+     4                                  ; //
+     5                                  ; //This file is part of the software program "Sum of Values".
+     6                                  ; //****************************************************************************************************************************
+     7                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+     8                                  ;
+     9                                  ; //Author information
+    10                                  ; //  Author name: konner rigby
+    11                                  ; //  Author email: rigbykonner@csu.fullerton.edu
+    12                                  ; //  CWID: 884547654
+    13                                  ; //  Class: 240-03 Section 03
+    14                                  ; //
+    15                                  ; //Program information
+    16                                  ; //  Program name: Sum of Values
+    17                                  ; //  Programming languages: X86 Assembly (NASM)
+    18                                  ; //
+    19                                  ; //Purpose
+    20                                  ; //  The purpose of this file is to compute the sum of an array of 64-bit floating-point numbers.
+    21                                  ; //
+    22                                  ; //This file
+    23                                  ; //   File name: adder.asm
+    24                                  ; //   Language: x86 (NASM syntax)
+    25                                  ; //   Compile: nasm -f elf64 -o adder.o -l adder.lis adder.asm
+    26                                  ; //
+    27                                  ; //=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    28                                  ; //
+    29                                  ; //
+    30                                  ; //===== Begin code area ===========================================================================================================
+    31                                  
+    32                                  global adder
+    33                                  
+    34                                  segment .text
+    35                                  adder:
+    36                                      ; Prologue
+    37 00000000 55                          push rbp
+    38 00000001 4889E5                      mov rbp, rsp
+    39 00000004 4154                        push r12
+    40 00000006 4155                        push r13
+    41 00000008 4156                        push r14
+    42                                  
+    43                                      ; rdi = array pointer
+    44                                      ; rsi = count
+    45 0000000A 4989FC                      mov r12, rdi                ; array pointer
+    46 0000000D 4989F5                      mov r13, rsi                ; count
+    47 00000010 41BE00000000                mov r14, 0                  ; index (i)
+    48 00000016 660F57C0                    xorpd xmm0, xmm0             ; sum = 0.0
+    49                                  
+    50                                  sum_loop:
+    51 0000001A 4D39EE                      cmp r14, r13                ; i < count
+    52 0000001D 7D0B                        jge end_sum_loop
+    53                                  
+    54 0000001F F2430F5804F4                addsd xmm0, [r12 + r14 * 8] ; sum += array[i]
+    55 00000025 49FFC6                      inc r14
+    56 00000028 EBF0                        jmp sum_loop
+    57                                  
+    58                                  end_sum_loop:
+    59                                      ; Result is already in xmm0
+    60                                  
+    61                                      ; Epilogue
+    62 0000002A 415E                        pop r14
+    63 0000002C 415D                        pop r13
+    64 0000002E 415C                        pop r12
+    65 00000030 5D                          pop rbp
+    66 00000031 C3                          ret

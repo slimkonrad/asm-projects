@@ -1,0 +1,104 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;Program name: "display_array". This program receives a pointer to an array of 64-bit floats
+     3                                  ;and a count. It iterates through the array, converting each float to a string
+     4                                  ;using 'ftoa' and printing it to stdout, followed by a newline.
+     5                                  ;
+     6                                  ;This file is part of the software program "Sum of Values".
+     7                                  ;****************************************************************************************************************************
+     8                                  ;=======1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**//
+     9                                  ;
+    10                                  ;Author information
+    11                                  ;  Author name: konner rigby
+    12                                  ;  Author email: rigbykonner@csu.fullerton.edu
+    13                                  ;  CWID: 884547654
+    14                                  ;  Class: 240-03 Section 03
+    15                                  ;
+    16                                  ;Program information
+    17                                  ;  Program name: Sum of Values
+    18                                  ;  Programming languages: X86 Assembly (NASM)
+    19                                  ;
+    20                                  ;Purpose
+    21                                  ;  The purpose of this file is to print the contents of the float array to the console,
+    22                                  ;  with each number on a new line, for user verification.
+    23                                  ;
+    24                                  ;This file
+    25                                  ;   File name: display_array.asm
+    26                                  ;   Language: x86 (NASM syntax)
+    27                                  ;   Compile: nasm -f elf64 -o display_array.o -l display_array.lis display_array.asm
+    28                                  ;****************************************************************************************************************************
+    29                                  
+    30                                  global display_array
+    31                                  extern ftoa
+    32                                  
+    33                                  segment .data
+    34 00000000 0A00                        newline: db 0x0A, 0          ; newline character
+    35                                  
+    36                                  segment .text
+    37                                  display_array:
+    38                                      ; save base pointer and registers
+    39 00000000 55                          push rbp
+    40 00000001 4889E5                      mov  rbp, rsp
+    41 00000004 4154                        push r12
+    42 00000006 4155                        push r13
+    43 00000008 4156                        push r14
+    44 0000000A 53                          push rbx
+    45                                  
+    46                                      ; rdi = array pointer
+    47                                      ; rsi = count
+    48 0000000B 4989FC                      mov r12, rdi                ; save array pointer
+    49 0000000E 4989F5                      mov r13, rsi                ; save count
+    50 00000011 41BE00000000                mov r14, 0                  ; index = 0
+    51                                  
+    52                                  display_loop:
+    53 00000017 4D39EE                      cmp r14, r13                ; check if index >= count
+    54 0000001A 7D45                        jge end_display_loop
+    55                                  
+    56                                      ; convert float to string
+    57 0000001C F2430F1004F4                movsd xmm0, [r12 + r14*8]   ; load array element
+    58 00000022 E8(00000000)                call ftoa                   ; convert float to string
+    59 00000027 4889C3                      mov rbx, rax                ; save pointer to string
+    60                                  
+    61                                      ; find string length
+    62 0000002A 4889DF                      mov rdi, rbx
+    63 0000002D E838000000                  call strlen_local
+    64 00000032 4889C2                      mov rdx, rax                ; rdx = string length
+    65                                  
+    66                                      ; print the string
+    67 00000035 B801000000                  mov rax, 1                  ; sys_write
+    68 0000003A BF01000000                  mov rdi, 1                  ; stdout
+    69 0000003F 4889DE                      mov rsi, rbx                ; string pointer
+    70 00000042 0F05                        syscall
+    71                                  
+    72                                      ; print newline
+    73 00000044 B801000000                  mov rax, 1
+    74 00000049 BF01000000                  mov rdi, 1
+    75 0000004E 488D35(00000000)            lea rsi, [rel newline]
+    76 00000055 BA01000000                  mov rdx, 1
+    77 0000005A 0F05                        syscall
+    78                                  
+    79 0000005C 49FFC6                      inc r14                     ; next element
+    80 0000005F EBB6                        jmp display_loop
+    81                                  
+    82                                  end_display_loop:
+    83                                      ; restore registers and return
+    84 00000061 5B                          pop rbx
+    85 00000062 415E                        pop r14
+    86 00000064 415D                        pop r13
+    87 00000066 415C                        pop r12
+    88 00000068 5D                          pop rbp
+    89 00000069 C3                          ret
+    90                                  
+    91                                  ; the local strlen function
+    92                                  ; the input is rdi which is = pointer to string
+    93                                  ; the output is rax which is = to the length of string
+    94                                  strlen_local:
+    95 0000006A 57                          push rdi
+    96 0000006B B800000000                  mov  rax, 0
+    97                                  .Lloop:
+    98 00000070 803C0700                    cmp byte [rdi+rax], 0
+    99 00000074 7405                        je  .Lend
+   100 00000076 48FFC0                      inc rax
+   101 00000079 EBF5                        jmp .Lloop
+   102                                  .Lend:
+   103 0000007B 5F                          pop rdi
+   104 0000007C C3                          ret
