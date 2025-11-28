@@ -1,0 +1,194 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;* Program name: Non-deterministic Random Numbers                                                                           *
+     3                                  ;* Copyright (C) 2025 Konner Rigby.                                                                                           *
+     4                                  ;* This file is part of the Non-deterministic Random Numbers program.                                                       *
+     5                                  ;****************************************************************************************************************************
+     6                                  
+     7                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+     8                                  ; Author information
+     9                                  ; Author: Konner Rigby
+    10                                  ; Author Email: rigbykonner@csu.fullerton.edu or rigbykonner@gmail.com
+    11                                  ; CWID: 884547654
+    12                                  ; Class: 240-03 Section 03
+    13                                  ;
+    14                                  ; This file
+    15                                  ;   File name: show_array.asm
+    16                                  ;   Function: show_array
+    17                                  ;   Purpose: Displays the array of 64-bit floats. (Syscall version)
+    18                                  ;            Calls qword_to_hex and ftoa to print real values.
+    19                                  ;   Language: x86-64 Assembly
+    20                                  ;   Syntax: Intel
+    21                                  ;   Assembler: nasm -f elf64 -g -o show_array.o show_array.asm
+    22                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    23                                  
+    24                                  ; === Declarations ===
+    25                                  global show_array
+    26                                  extern qword_to_hex, ftoa
+    27                                  ; We removed 'extern strlen' because it is now in this file.
+    28                                  
+    29                                  ; === System Call Constants ===
+    30                                  SYS_WRITE equ 1
+    31                                  STDOUT    equ 1
+    32                                  
+    33                                  ; === Macro for sys_write ===
+    34                                  %macro sys_write 2
+    35                                      mov     rax, SYS_WRITE
+    36                                      mov     rdi, STDOUT
+    37                                      mov     rsi, %1
+    38                                      mov     rdx, %2
+    39                                      syscall
+    40                                  %endmacro
+    41                                  
+    42                                  ; === Initialized Data ===
+    43                                  segment .data
+    44 00000000 494545453735342066-         header:     db "IEEE754 form", 9, 9, "Standard Decimal", 10
+    44 00000009 6F726D09095374616E-
+    44 00000012 646172642044656369-
+    44 0000001B 6D616C0A           
+    45                                      len_header: equ $ - header
+    46                                      
+    47 0000001F 3078                        hex_prefix: db "0x"
+    48                                      len_prefix: equ $ - hex_prefix
+    49                                      
+    50                                      ; Using two tabs for better spacing
+    51 00000021 0909                        tab:        db 9, 9
+    52                                      len_tab:    equ $ - tab
+    53                                      
+    54 00000023 0A                          newline:    db 10
+    55                                      len_newline:equ $ - newline
+    56                                  
+    57                                  ; === Uninitialized Data ===
+    58                                  segment .bss
+    59 00000000 <res 10h>                   hex_buffer:     resb 16 ; 16 hex chars (no null)
+    60                                  
+    61                                  ; === Code ===
+    62                                  segment .text
+    63                                  show_array:
+    64                                      ; === Standard Prologue ===
+    65 00000000 55                          push    rbp
+    66 00000001 4889E5                      mov     rbp, rsp
+    67 00000004 4154                        push    r12             ; Callee-saved register for array base
+    68 00000006 4155                        push    r13             ; Callee-saved register for count
+    69 00000008 4156                        push    r14             ; Callee-saved register for loop counter
+    70 0000000A 4157                        push    r15             ; Callee-saved register for string pointer
+    71                                  
+    72                                      ; === Save passed-in values ===
+    73 0000000C 4989FC                      mov     r12, rdi        ; r12 = array address
+    74 0000000F 4989F5                      mov     r13, rsi        ; r13 = count
+    75                                      
+    76                                      ; === Print the two-column header ===
+    77                                      sys_write header, len_header
+    35 00000012 B801000000          <1>  mov rax, SYS_WRITE
+    36 00000017 BF01000000          <1>  mov rdi, STDOUT
+    37 0000001C 48BE-               <1>  mov rsi, %1
+    37 0000001E [0000000000000000]  <1>
+    38 00000026 BA1F000000          <1>  mov rdx, %2
+    39 0000002B 0F05                <1>  syscall
+    78                                  
+    79                                      ; === Begin main loop to print array ===
+    80 0000002D 4D31F6                      xor     r14, r14        ; r14 = loop counter i = 0
+    81                                  
+    82                                  output_loop:
+    83 00000030 4D39EE                      cmp     r14, r13        ; Compare i with count
+    84 00000033 0F8DB9000000                jge     output_done     ; (using signed jump)
+    85                                  
+    86                                      ; --- Print Hex Value ---
+    87                                      sys_write hex_prefix, len_prefix
+    35 00000039 B801000000          <1>  mov rax, SYS_WRITE
+    36 0000003E BF01000000          <1>  mov rdi, STDOUT
+    37 00000043 48BE-               <1>  mov rsi, %1
+    37 00000045 [1F00000000000000]  <1>
+    38 0000004D BA02000000          <1>  mov rdx, %2
+    39 00000052 0F05                <1>  syscall
+    88                                      
+    89 00000054 4B8B3CF4                    mov     rdi, [r12 + r14 * 8] ; Pass the 64-bit integer
+    90 00000058 488D3425[00000000]          lea     rsi, [hex_buffer]    ; Pass the buffer
+    91 00000060 E8(00000000)                call    qword_to_hex         ; Convert
+    92                                      
+    93                                      sys_write hex_buffer, 16     ; Write 16 hex chars
+    35 00000065 B801000000          <1>  mov rax, SYS_WRITE
+    36 0000006A BF01000000          <1>  mov rdi, STDOUT
+    37 0000006F 48BE-               <1>  mov rsi, %1
+    37 00000071 [0000000000000000]  <1>
+    38 00000079 BA10000000          <1>  mov rdx, %2
+    39 0000007E 0F05                <1>  syscall
+    94                                  
+    95                                      ; --- Print Tab ---
+    96                                      sys_write tab, len_tab
+    35 00000080 B801000000          <1>  mov rax, SYS_WRITE
+    36 00000085 BF01000000          <1>  mov rdi, STDOUT
+    37 0000008A 48BE-               <1>  mov rsi, %1
+    37 0000008C [2100000000000000]  <1>
+    38 00000094 BA02000000          <1>  mov rdx, %2
+    39 00000099 0F05                <1>  syscall
+    97                                      
+    98                                      ; --- Print Real Decimal Value using ftoa ---
+    99 0000009B F2430F1004F4                movsd   xmm0, [r12 + r14 * 8] ; Load float into xmm0
+   100                                      
+   101                                      ; Save registers before call
+   102 000000A1 4154                        push    r12
+   103 000000A3 4155                        push    r13
+   104 000000A5 4156                        push    r14
+   105                                      
+   106 000000A7 E8(00000000)                call    ftoa            ; Call professor's ftoa function
+   107 000000AC 4989C7                      mov     r15, rax        ; Save the string pointer returned in rax
+   108                                      
+   109                                      ; We need the length of the string
+   110 000000AF 4889C7                      mov     rdi, rax
+   111 000000B2 E845000000                  call    strlen          ; Get string length (returns in rax)
+   112                                      
+   113                                      ; Restore registers
+   114 000000B7 415E                        pop     r14
+   115 000000B9 415D                        pop     r13
+   116 000000BB 415C                        pop     r12
+   117                                      
+   118                                      ; Print the string
+   119                                      sys_write r15, rax      ; (rsi = pointer, rdx = length)
+    35 000000BD B801000000          <1>  mov rax, SYS_WRITE
+    36 000000C2 BF01000000          <1>  mov rdi, STDOUT
+    37 000000C7 4C89FE              <1>  mov rsi, %1
+    38 000000CA 4889C2              <1>  mov rdx, %2
+    39 000000CD 0F05                <1>  syscall
+   120                                      
+   121                                      ; --- Print Newline ---
+   122                                      sys_write newline, len_newline
+    35 000000CF B801000000          <1>  mov rax, SYS_WRITE
+    36 000000D4 BF01000000          <1>  mov rdi, STDOUT
+    37 000000D9 48BE-               <1>  mov rsi, %1
+    37 000000DB [2300000000000000]  <1>
+    38 000000E3 BA01000000          <1>  mov rdx, %2
+    39 000000E8 0F05                <1>  syscall
+   123                                  
+   124 000000EA 49FFC6                      inc     r14             ; i++
+   125 000000ED E93EFFFFFF                  jmp     output_loop
+   126                                  
+   127                                  output_done:
+   128                                      ; === Standard Epilogue ===
+   129 000000F2 415F                        pop     r15
+   130 000000F4 415E                        pop     r14
+   131 000000F6 415D                        pop     r13
+   132 000000F8 415C                        pop     r12
+   133 000000FA 5D                          pop     rbp
+   134 000000FB C3                          ret
+   135                                  
+   136                                  ; === strlen function ===
+   137                                  ; This is the helper function, now part of this file.
+   138                                  ; It counts the number of bytes in a string until
+   139                                  ; the null terminator.
+   140                                  ; Input: RDI = pointer to string
+   141                                  ; Output: RAX = length
+   142                                  strlen:
+   143 000000FC 55                          push    rbp
+   144 000000FD 4889E5                      mov     rbp, rsp
+   145                                      
+   146 00000100 4831C0                      xor     rax, rax        ; rax = 0 (our counter)
+   147                                  
+   148                                  count_loop:
+   149 00000103 803C0700                    cmp     byte [rdi + rax], 0
+   150 00000107 7405                        je      done
+   151 00000109 48FFC0                      inc     rax
+   152 0000010C EBF5                        jmp     count_loop
+   153                                      
+   154                                  done:
+   155 0000010E 5D                          pop     rbp
+   156 0000010F C3                          ret

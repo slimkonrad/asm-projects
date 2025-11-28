@@ -1,0 +1,449 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;* Program name: Non-deterministic Random Numbers                                                                           *
+     3                                  ;* Copyright (C) 2025 Konner Rigby.                                                                                           *
+     4                                  ;* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ;* version 3 as published by the Free Software Foundation. This program is distributed in the hope that it will be useful,    *
+     6                                  ;* but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See    *
+     7                                  ;* the GNU General Public License for more details. A copy of the GNU General Public License v3 is available here:            *
+     8                                  ;* <https://www.gnu.org/licenses/>.                                                                                         *
+     9                                  ;****************************************************************************************************************************
+    10                                  
+    11                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    12                                  ; Author information
+    13                                  ; Author: Konner Rigby
+    14                                  ; Author Email: rigbykonner@csu.fullerton.edu or rigbykonner@gmail.com
+    15                                  ; CWID: 884547654
+    16                                  ; Class: 240-03 Section 03
+    17                                  ;
+    18                                  ; Program information
+    19                                  ;   Program name: Non-deterministic Random Numbers
+    20                                  ;   Programming languages: x86-64 Assembly, Bash
+    21                                  ;   Date program began: 2025-Nov-12
+    22                                  ;   Date of last update: 2025-Nov-12
+    23                                  ;   Files in this program: executive.asm, fill_random_array.asm, isnan.asm,
+    24                                  ;   show_array.asm, normalize_array.asm, atoi.asm, ftoa.asm, qword_to_hex.asm, r.sh
+    25                                  ;   Status: Ready for release.
+    26                                  ;
+    27                                  ; Purpose
+    28                                  ;   This program demonstrates using the rdrand instruction to generate
+    29                                  ;   an array of non-deterministic random 64-bit floating point numbers.
+    30                                  ;
+    31                                  ; This file
+    32                                  ;   File name: executive.asm
+    33                                  ;   Function: _start (main entry point)
+    34                                  ;   Purpose: Serves as the main driver for the program. (Syscall version)
+    35                                  ;   Language: x86-64 Assembly
+    36                                  ;   Syntax: Intel
+    37                                  ;   Assembler: nasm -f elf64 -g -o executive.o executive.asm
+    38                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    39                                  
+    40                                  ; === Declarations ===
+    41                                  global _start
+    42                                  extern fill_random_array, show_array, normalize_array, atoi
+    43                                  ; _start is the default entry point for the linker
+    44                                  
+    45                                  ; === System Call Constants ===
+    46                                  SYS_READ  equ 0
+    47                                  SYS_WRITE equ 1
+    48                                  SYS_EXIT  equ 60
+    49                                  STDIN     equ 0
+    50                                  STDOUT    equ 1
+    51                                  
+    52                                  ; === Initialized Data ===
+    53                                  segment .data
+    54 00000000 57656C636F6D652074-         msg_welcome_1:  db "Welcome to Random Products, LLC.", 10
+    54 00000009 6F2052616E646F6D20-
+    54 00000012 50726F64756374732C-
+    54 0000001B 204C4C432E0A       
+    55                                      len_welcome_1:  equ $ - msg_welcome_1
+    56                                      
+    57 00000021 5468697320736F6674-         msg_welcome_2:  db "This software is maintained by Albert Einstein", 10, 10
+    57 0000002A 77617265206973206D-
+    57 00000033 61696E7461696E6564-
+    57 0000003C 20627920416C626572-
+    57 00000045 742045696E73746569-
+    57 0000004E 6E0A0A             
+    58                                      len_welcome_2:  equ $ - msg_welcome_2
+    59                                      
+    60 00000051 506C6561736520656E-         prompt_name:    db "Please enter your name: "
+    60 0000005A 74657220796F757220-
+    60 00000063 6E616D653A20       
+    61                                      len_prompt_name:equ $ - prompt_name
+    62                                      
+    63 00000069 506C6561736520656E-         prompt_title:   db "Please enter your title (Mr,Ms,Sargent,Chief,Project Leader,etc): "
+    63 00000072 74657220796F757220-
+    63 0000007B 7469746C6520284D72-
+    63 00000084 2C4D732C5361726765-
+    63 0000008D 6E742C43686965662C-
+    63 00000096 50726F6A656374204C-
+    63 0000009F 65616465722C657463-
+    63 000000A8 293A20             
+    64                                      len_prompt_title:equ $ - prompt_title
+    65                                      
+    66 000000AB 4E69636520746F206D-         msg_greeting_1: db "Nice to meet you "
+    66 000000B4 65657420796F7520   
+    67                                      len_greeting_1: equ $ - msg_greeting_1
+    68 000000BC 20                          msg_greeting_2: db " "
+    69                                      len_greeting_2: equ $ - msg_greeting_2
+    70 000000BD 0A0A                        msg_greeting_3: db 10, 10
+    71                                      len_greeting_3: equ $ - msg_greeting_3
+    72                                  
+    73 000000BF 546869732070726F67-         msg_intro:      db "This program will generate 64-bit IEEE float numbers.", 10
+    73 000000C8 72616D2077696C6C20-
+    73 000000D1 67656E657261746520-
+    73 000000DA 36342D626974204945-
+    73 000000E3 454520666C6F617420-
+    73 000000EC 6E756D626572732E0A 
+    74                                      len_intro:      equ $ - msg_intro
+    75                                      
+    76 000000F5 486F77206D616E7920-         prompt_how_many:db "How many numbers do you want. Today’s limit is 100 per customer. "
+    76 000000FE 6E756D626572732064-
+    76 00000107 6F20796F752077616E-
+    76 00000110 742E20546F646179E2-
+    76 00000119 809973206C696D6974-
+    76 00000122 206973203130302070-
+    76 0000012B 657220637573746F6D-
+    76 00000134 65722E20           
+    77                                      len_how_many:   equ $ - prompt_how_many
+    78                                      
+    79 00000138 0A496E76616C696420-         msg_error:      db 10, "Invalid input. Please enter a number between 1 and 100.", 10
+    79 00000141 696E7075742E20506C-
+    79 0000014A 6561736520656E7465-
+    79 00000153 722061206E756D6265-
+    79 0000015C 72206265747765656E-
+    79 00000165 203120616E64203130-
+    79 0000016E 302E0A             
+    80                                      len_error:      equ $ - msg_error
+    81                                      
+    82 00000171 596F7572206E756D62-         msg_stored:     db "Your numbers have been stored in an array. Here is that array.", 10, 10
+    82 0000017A 657273206861766520-
+    82 00000183 6265656E2073746F72-
+    82 0000018C 656420696E20616E20-
+    82 00000195 61727261792E204865-
+    82 0000019E 726520697320746861-
+    82 000001A7 742061727261792E0A-
+    82 000001B0 0A                 
+    83                                      len_stored:     equ $ - msg_stored
+    84                                      
+    85 000001B1 0A5468652061727261-         msg_normalize:  db 10, "The array will now be normalized to the range 1.0 to 2.0. Here is the normalized array", 10, 10
+    85 000001BA 792077696C6C206E6F-
+    85 000001C3 77206265206E6F726D-
+    85 000001CC 616C697A656420746F-
+    85 000001D5 207468652072616E67-
+    85 000001DE 6520312E3020746F20-
+    85 000001E7 322E302E2048657265-
+    85 000001F0 20697320746865206E-
+    85 000001F9 6F726D616C697A6564-
+    85 00000202 2061727261790A0A   
+    86                                      len_normalize:  equ $ - msg_normalize
+    87                                      
+    88 0000020A 0A476F6F6420627965-         msg_goodbye_1:  db 10, "Good bye "
+    88 00000213 20                 
+    89                                      len_goodbye_1:  equ $ - msg_goodbye_1
+    90 00000214 2E20596F7520617265-         msg_goodbye_2:  db ". You are welcome any time.", 10, 10
+    90 0000021D 2077656C636F6D6520-
+    90 00000226 616E792074696D652E-
+    90 0000022F 0A0A               
+    91                                      len_goodbye_2:  equ $ - msg_goodbye_2
+    92                                      
+    93 00000231 4F682C20                    msg_farewell_1: db "Oh, "
+    94                                      len_farewell_1: equ $ - msg_farewell_1
+    95 00000235 2E20576520686F7065-         msg_farewell_2: db ". We hope you enjoyed your arrays.", 10
+    95 0000023E 20796F7520656E6A6F-
+    95 00000247 79656420796F757220-
+    95 00000250 6172726179732E0A   
+    96                                      len_farewell_2: equ $ - msg_farewell_2
+    97                                      
+    98 00000258 41207A65726F207769-         msg_zero:       db "A zero will be returned to the operating system.", 10
+    98 00000261 6C6C20626520726574-
+    98 0000026A 75726E656420746F20-
+    98 00000273 746865206F70657261-
+    98 0000027C 74696E672073797374-
+    98 00000285 656D2E0A           
+    99                                      len_zero:       equ $ - msg_zero
+   100                                  
+   101 00000289 6400000000000000            MAX_SIZE:       dq 100
+   102                                  
+   103                                  ; === Uninitialized Data ===
+   104                                  segment .bss
+   105 00000000 <res 80h>                   user_name:      resb 128    ; Buffer for name
+   106 00000080 ????????????????            len_user_name:  resq 1
+   107 00000088 <res 80h>                   user_title:     resb 128    ; Buffer for title
+   108 00000108 ????????????????            len_user_title: resq 1
+   109 00000110 <res 80h>                   input_buffer:   resb 128    ; Buffer for numeric input
+   110 00000190 ????????????????            num_to_generate:resq 1       ; Storage for the validated count
+   111 00000198 <res 320h>                  number_array:   resq 100    ; Storage for the random numbers (100 * 8 bytes)
+   112                                  
+   113                                  ; === Macro for sys_write ===
+   114                                  ; Writes a string (arg1 = address, arg2 = length) to STDOUT
+   115                                  %macro sys_write 2
+   116                                      mov     rax, SYS_WRITE
+   117                                      mov     rdi, STDOUT
+   118                                      mov     rsi, %1         ; Message address
+   119                                      mov     rdx, %2         ; Message length
+   120                                      syscall
+   121                                  %endmacro
+   122                                  
+   123                                  ; === Code ===
+   124                                  segment .text
+   125                                  _start:
+   126                                      ; === Standard Prologue ===
+   127                                      ; We don't need a C-style prologue for syscall
+   128 00000000 55                          push    rbp
+   129 00000001 4889E5                      mov     rbp, rsp
+   130 00000004 4154                        push    r12             ; Callee-saved register for user_name
+   131 00000006 4155                        push    r13             ; Callee-saved register for user_title
+   132 00000008 4156                        push    r14             ; Callee-saved register for num_to_generate
+   133 0000000A 4157                        push    r15             ; Callee-saved register for number_array base
+   134                                      
+   135                                      ; === Store buffer addresses for later use ===
+   136 0000000C 4C8D2425[00000000]          lea     r12, [user_name]
+   137 00000014 4C8D2C25[88000000]          lea     r13, [user_title]
+   138 0000001C 4C8D3C25[98010000]          lea     r15, [number_array]
+   139                                  
+   140                                      ; === Block: Display Welcome Banner ===
+   141                                      sys_write msg_welcome_1, len_welcome_1
+   116 00000024 B801000000          <1>  mov rax, SYS_WRITE
+   117 00000029 BF01000000          <1>  mov rdi, STDOUT
+   118 0000002E 48BE-               <1>  mov rsi, %1
+   118 00000030 [0000000000000000]  <1>
+   119 00000038 BA21000000          <1>  mov rdx, %2
+   120 0000003D 0F05                <1>  syscall
+   142                                      sys_write msg_welcome_2, len_welcome_2
+   116 0000003F B801000000          <1>  mov rax, SYS_WRITE
+   117 00000044 BF01000000          <1>  mov rdi, STDOUT
+   118 00000049 48BE-               <1>  mov rsi, %1
+   118 0000004B [2100000000000000]  <1>
+   119 00000053 BA30000000          <1>  mov rdx, %2
+   120 00000058 0F05                <1>  syscall
+   143                                  
+   144                                      ; === Block: Get User Name ===
+   145                                      sys_write prompt_name, len_prompt_name
+   116 0000005A B801000000          <1>  mov rax, SYS_WRITE
+   117 0000005F BF01000000          <1>  mov rdi, STDOUT
+   118 00000064 48BE-               <1>  mov rsi, %1
+   118 00000066 [5100000000000000]  <1>
+   119 0000006E BA18000000          <1>  mov rdx, %2
+   120 00000073 0F05                <1>  syscall
+   146                                      
+   147 00000075 B800000000                  mov     rax, SYS_READ
+   148 0000007A BF00000000                  mov     rdi, STDIN
+   149 0000007F 4C89E6                      mov     rsi, r12        ; user_name buffer
+   150 00000082 BA80000000                  mov     rdx, 128        ; max length
+   151 00000087 0F05                        syscall
+   152 00000089 48890425[80000000]          mov     [len_user_name], rax ; Save length (e.g., "Sam\n" = 4)
+   153                                  
+   154                                      ; === Block: Get User Title ===
+   155                                      sys_write prompt_title, len_prompt_title
+   116 00000091 B801000000          <1>  mov rax, SYS_WRITE
+   117 00000096 BF01000000          <1>  mov rdi, STDOUT
+   118 0000009B 48BE-               <1>  mov rsi, %1
+   118 0000009D [6900000000000000]  <1>
+   119 000000A5 BA42000000          <1>  mov rdx, %2
+   120 000000AA 0F05                <1>  syscall
+   156                                  
+   157 000000AC B800000000                  mov     rax, SYS_READ
+   158 000000B1 BF00000000                  mov     rdi, STDIN
+   159 000000B6 4C89EE                      mov     rsi, r13        ; user_title buffer
+   160 000000B9 BA80000000                  mov     rdx, 128
+   161 000000BE 0F05                        syscall
+   162 000000C0 48890425[08010000]          mov     [len_user_title], rax ; Save length
+   163                                      
+   164                                      ; === Block: Display Greeting ===
+   165                                      sys_write msg_greeting_1, len_greeting_1
+   116 000000C8 B801000000          <1>  mov rax, SYS_WRITE
+   117 000000CD BF01000000          <1>  mov rdi, STDOUT
+   118 000000D2 48BE-               <1>  mov rsi, %1
+   118 000000D4 [AB00000000000000]  <1>
+   119 000000DC BA11000000          <1>  mov rdx, %2
+   120 000000E1 0F05                <1>  syscall
+   166                                      
+   167 000000E3 488B1425[08010000]          mov     rdx, [len_user_title]
+   168 000000EB 48FFCA                      dec     rdx                     ; Remove newline
+   169                                      sys_write r13, rdx              ; Print title
+   116 000000EE B801000000          <1>  mov rax, SYS_WRITE
+   117 000000F3 BF01000000          <1>  mov rdi, STDOUT
+   118 000000F8 4C89EE              <1>  mov rsi, %1
+   119 000000FB 4889D2              <1>  mov rdx, %2
+   120 000000FE 0F05                <1>  syscall
+   170                                      
+   171                                      sys_write msg_greeting_2, len_greeting_2
+   116 00000100 B801000000          <1>  mov rax, SYS_WRITE
+   117 00000105 BF01000000          <1>  mov rdi, STDOUT
+   118 0000010A 48BE-               <1>  mov rsi, %1
+   118 0000010C [BC00000000000000]  <1>
+   119 00000114 BA01000000          <1>  mov rdx, %2
+   120 00000119 0F05                <1>  syscall
+   172                                      
+   173 0000011B 488B1425[80000000]          mov     rdx, [len_user_name]
+   174 00000123 48FFCA                      dec     rdx                     ; Remove newline
+   175                                      sys_write r12, rdx              ; Print name
+   116 00000126 B801000000          <1>  mov rax, SYS_WRITE
+   117 0000012B BF01000000          <1>  mov rdi, STDOUT
+   118 00000130 4C89E6              <1>  mov rsi, %1
+   119 00000133 4889D2              <1>  mov rdx, %2
+   120 00000136 0F05                <1>  syscall
+   176                                      
+   177                                      sys_write msg_greeting_3, len_greeting_3
+   116 00000138 B801000000          <1>  mov rax, SYS_WRITE
+   117 0000013D BF01000000          <1>  mov rdi, STDOUT
+   118 00000142 48BE-               <1>  mov rsi, %1
+   118 00000144 [BD00000000000000]  <1>
+   119 0000014C BA02000000          <1>  mov rdx, %2
+   120 00000151 0F05                <1>  syscall
+   178                                  
+   179                                      ; === Block: Get and Validate Array Size ===
+   180                                      sys_write msg_intro, len_intro
+   116 00000153 B801000000          <1>  mov rax, SYS_WRITE
+   117 00000158 BF01000000          <1>  mov rdi, STDOUT
+   118 0000015D 48BE-               <1>  mov rsi, %1
+   118 0000015F [BF00000000000000]  <1>
+   119 00000167 BA36000000          <1>  mov rdx, %2
+   120 0000016C 0F05                <1>  syscall
+   181                                  
+   182                                  get_count_loop:
+   183                                      sys_write prompt_how_many, len_how_many
+   116 0000016E B801000000          <1>  mov rax, SYS_WRITE
+   117 00000173 BF01000000          <1>  mov rdi, STDOUT
+   118 00000178 48BE-               <1>  mov rsi, %1
+   118 0000017A [F500000000000000]  <1>
+   119 00000182 BA43000000          <1>  mov rdx, %2
+   120 00000187 0F05                <1>  syscall
+   184                                  
+   185 00000189 B800000000                  mov     rax, SYS_READ
+   186 0000018E BF00000000                  mov     rdi, STDIN
+   187 00000193 488D3425[10010000]          lea     rsi, [input_buffer]
+   188 0000019B BA80000000                  mov     rdx, 128
+   189 000001A0 0F05                        syscall
+   190                                      ; rax now holds length of the number string (e.g., "6\n")
+   191                                      
+   192 000001A2 488D3C25[10010000]          lea     rdi, [input_buffer]
+   193 000001AA E8(00000000)                call    atoi                ; Call our new atoi function
+   194 000001AF 48890425[90010000]          mov     [num_to_generate], rax ; Save integer result
+   195 000001B7 4989C6                      mov     r14, rax            ; Move validated count to r14
+   196                                      
+   197 000001BA 4983FE01                    cmp     r14, 1
+   198 000001BE 7C0C                        jl      invalid_input       ; Use signed jump (jl)
+   199 000001C0 4C3B3425[89020000]          cmp     r14, [MAX_SIZE]
+   200 000001C8 7F02                        jg      invalid_input       ; Use signed jump (jg)
+   201                                      
+   202 000001CA EB1D                        jmp     valid_input_done
+   203                                  
+   204                                  invalid_input:
+   205                                      sys_write msg_error, len_error
+   116 000001CC B801000000          <1>  mov rax, SYS_WRITE
+   117 000001D1 BF01000000          <1>  mov rdi, STDOUT
+   118 000001D6 48BE-               <1>  mov rsi, %1
+   118 000001D8 [3801000000000000]  <1>
+   119 000001E0 BA39000000          <1>  mov rdx, %2
+   120 000001E5 0F05                <1>  syscall
+   206 000001E7 EB85                        jmp     get_count_loop
+   207                                      
+   208                                  valid_input_done:
+   209                                      sys_write msg_stored, len_stored
+   116 000001E9 B801000000          <1>  mov rax, SYS_WRITE
+   117 000001EE BF01000000          <1>  mov rdi, STDOUT
+   118 000001F3 48BE-               <1>  mov rsi, %1
+   118 000001F5 [7101000000000000]  <1>
+   119 000001FD BA40000000          <1>  mov rdx, %2
+   120 00000202 0F05                <1>  syscall
+   210                                  
+   211                                      ; === Block: Fill Random Array ===
+   212 00000204 4C89FF                      mov     rdi, r15        ; number_array
+   213 00000207 4C89F6                      mov     rsi, r14        ; count
+   214 0000020A E8(00000000)                call    fill_random_array
+   215                                  
+   216                                      ; === Block: Display Initial Array ===
+   217 0000020F 4C89FF                      mov     rdi, r15        ; number_array
+   218 00000212 4C89F6                      mov     rsi, r14        ; count
+   219 00000215 E8(00000000)                call    show_array
+   220                                  
+   221                                      ; === Block: Normalize Array ===
+   222                                      sys_write msg_normalize, len_normalize
+   116 0000021A B801000000          <1>  mov rax, SYS_WRITE
+   117 0000021F BF01000000          <1>  mov rdi, STDOUT
+   118 00000224 48BE-               <1>  mov rsi, %1
+   118 00000226 [B101000000000000]  <1>
+   119 0000022E BA59000000          <1>  mov rdx, %2
+   120 00000233 0F05                <1>  syscall
+   223                                      
+   224 00000235 4C89FF                      mov     rdi, r15        ; number_array
+   225 00000238 4C89F6                      mov     rsi, r14        ; count
+   226 0000023B E8(00000000)                call    normalize_array
+   227                                  
+   228                                      ; === Block: Display Normalized Array ===
+   229 00000240 4C89FF                      mov     rdi, r15        ; number_array
+   230 00000243 4C89F6                      mov     rsi, r14        ; count
+   231 00000246 E8(00000000)                call    show_array
+   232                                  
+   233                                      ; === Block: Display Farewell Messages ===
+   234                                      sys_write msg_goodbye_1, len_goodbye_1
+   116 0000024B B801000000          <1>  mov rax, SYS_WRITE
+   117 00000250 BF01000000          <1>  mov rdi, STDOUT
+   118 00000255 48BE-               <1>  mov rsi, %1
+   118 00000257 [0A02000000000000]  <1>
+   119 0000025F BA0A000000          <1>  mov rdx, %2
+   120 00000264 0F05                <1>  syscall
+   235                                      
+   236 00000266 488B1425[08010000]          mov     rdx, [len_user_title]
+   237 0000026E 48FFCA                      dec     rdx
+   238                                      sys_write r13, rdx              ; Print title
+   116 00000271 B801000000          <1>  mov rax, SYS_WRITE
+   117 00000276 BF01000000          <1>  mov rdi, STDOUT
+   118 0000027B 4C89EE              <1>  mov rsi, %1
+   119 0000027E 4889D2              <1>  mov rdx, %2
+   120 00000281 0F05                <1>  syscall
+   239                                      
+   240                                      sys_write msg_goodbye_2, len_goodbye_2
+   116 00000283 B801000000          <1>  mov rax, SYS_WRITE
+   117 00000288 BF01000000          <1>  mov rdi, STDOUT
+   118 0000028D 48BE-               <1>  mov rsi, %1
+   118 0000028F [1402000000000000]  <1>
+   119 00000297 BA1D000000          <1>  mov rdx, %2
+   120 0000029C 0F05                <1>  syscall
+   241                                      
+   242                                      sys_write msg_farewell_1, len_farewell_1
+   116 0000029E B801000000          <1>  mov rax, SYS_WRITE
+   117 000002A3 BF01000000          <1>  mov rdi, STDOUT
+   118 000002A8 48BE-               <1>  mov rsi, %1
+   118 000002AA [3102000000000000]  <1>
+   119 000002B2 BA04000000          <1>  mov rdx, %2
+   120 000002B7 0F05                <1>  syscall
+   243                                      
+   244 000002B9 488B1425[80000000]          mov     rdx, [len_user_name]
+   245 000002C1 48FFCA                      dec     rdx
+   246                                      sys_write r12, rdx              ; Print name
+   116 000002C4 B801000000          <1>  mov rax, SYS_WRITE
+   117 000002C9 BF01000000          <1>  mov rdi, STDOUT
+   118 000002CE 4C89E6              <1>  mov rsi, %1
+   119 000002D1 4889D2              <1>  mov rdx, %2
+   120 000002D4 0F05                <1>  syscall
+   247                                      
+   248                                      sys_write msg_farewell_2, len_farewell_2
+   116 000002D6 B801000000          <1>  mov rax, SYS_WRITE
+   117 000002DB BF01000000          <1>  mov rdi, STDOUT
+   118 000002E0 48BE-               <1>  mov rsi, %1
+   118 000002E2 [3502000000000000]  <1>
+   119 000002EA BA23000000          <1>  mov rdx, %2
+   120 000002EF 0F05                <1>  syscall
+   249                                      
+   250                                      sys_write msg_zero, len_zero
+   116 000002F1 B801000000          <1>  mov rax, SYS_WRITE
+   117 000002F6 BF01000000          <1>  mov rdi, STDOUT
+   118 000002FB 48BE-               <1>  mov rsi, %1
+   118 000002FD [5802000000000000]  <1>
+   119 00000305 BA31000000          <1>  mov rdx, %2
+   120 0000030A 0F05                <1>  syscall
+   251                                  
+   252                                      ; === Standard Epilogue ===
+   253 0000030C B83C000000                  mov     rax, SYS_EXIT
+   254 00000311 BF00000000                  mov     rdi, 0          ; Return 0
+   255 00000316 0F05                        syscall
+   256                                      
+   257                                      ; We never reach 'ret', but we pop to be tidy
+   258 00000318 415F                        pop     r15
+   259 0000031A 415E                        pop     r14
+   260 0000031C 415D                        pop     r13
+   261 0000031E 415C                        pop     r12
+   262 00000320 5D                          pop     rbp
+   263 00000321 C3                          ret
