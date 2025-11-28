@@ -1,0 +1,195 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;* Program name: GNU Sort Debugger                                                                                          *
+     3                                  ;* Copyright (C) 2025 Konner Rigby.                                                                                         *
+     4                                  ;* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ;* version 3 as published by the Free Software Foundation. This program is distributed in the hope that it will be useful,   *
+     6                                  ;* but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See    *
+     7                                  ;* the GNU General Public License for more details. A copy of the GNU General Public License v3 is available here:          *
+     8                                  ;* <https://www.gnu.org/licenses/>.                                                                                         *
+     9                                  ;****************************************************************************************************************************
+    10                                  
+    11                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    12                                  ; Author information
+    13                                  ; Author: Konner Rigby
+    14                                  ; Author Email: rigbykonner@csu.fullerton.edu or rigbykonner@gmail.com
+    15                                  ; CWID: 884547654
+    16                                  ; Class: 240-03 Section 03
+    17                                  ;
+    18                                  ; Program information
+    19                                  ;   Program name: GNU Sort Debugger
+    20                                  ;   Programming languages: C, x86-64 Assembly, Bash
+    21                                  ;   Date program began: 2025-Oct-03
+    22                                  ;   Date of last update: 2025-Oct-10
+    23                                  ;   Files in this program: executive.c, manager.asm, inputarray.asm, outputarray.asm, sum.asm, sort.c, swap.asm,
+    24                                  ;                          isfloat.asm, backuprestore.inc, r.sh
+    25                                  ;   Status: Ready for GDB debugging.
+    26                                  ;
+    27                                  ; Purpose
+    28                                  ;   This program serves as a workspace to experiment with and learn the capabilities of the GNU Debugger (GDB).
+    29                                  ;
+    30                                  ; This file
+    31                                  ;   File name: inputarray.asm
+    32                                  ;   Language: x86-64 Assembly
+    33                                  ;   Assemble: nasm -f elf64 -g -F dwarf -o inputarray.o inputarray.asm
+    34                                  ;   Purpose: An assembly function to read and validate a series of floating-point numbers from the user.
+    35                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    36                                  
+    37                                  global input_array
+    38                                  %include "backuprestore.inc"
+    39                              <1> ; backuprestore.inc
+    40                              <1> ; This file contains macros for the standard function prologue and epilogue
+    41                              <1> ; to save and restore all general-purpose registers as shown in the
+    42                              <1> ; provided isfloat.asm and outputarray.asm files.
+    43                              <1> 
+    44                              <1> %macro backup 0
+    45                              <1>     push    rbp
+    46                              <1>     mov     rbp, rsp
+    47                              <1>     push    rdi
+    48                              <1>     push    rsi
+    49                              <1>     push    rdx
+    50                              <1>     push    rcx
+    51                              <1>     push    r8
+    52                              <1>     push    r9
+    53                              <1>     push    r10
+    54                              <1>     push    r11
+    55                              <1>     push    r12
+    56                              <1>     push    r13
+    57                              <1>     push    r14
+    58                              <1>     push    r15
+    59                              <1>     push    rbx
+    60                              <1>     pushf
+    61                              <1> %endmacro
+    62                              <1> 
+    63                              <1> %macro restore 0
+    64                              <1>     popf
+    65                              <1>     pop     rbx
+    66                              <1>     pop     r15
+    67                              <1>     pop     r14
+    68                              <1>     pop     r13
+    69                              <1>     pop     r12
+    70                              <1>     pop     r11
+    71                              <1>     pop     r10
+    72                              <1>     pop     r9
+    73                              <1>     pop     r8
+    74                              <1>     pop     rcx
+    75                              <1>     pop     rdx
+    76                              <1>     pop     rsi
+    77                              <1>     pop     rdi
+    78                              <1>     pop     rbp
+    79                              <1> %endmacro
+    39                                  
+    40                                  extern printf
+    41                                  extern scanf
+    42                                  extern atof
+    43                                  extern isfloat
+    44                                  extern stdin
+    45                                  
+    46                                  segment .data
+    47 00000000 257300                      floatformat   db  "%s", 0
+    48 00000003 546865206C61737420-         not_a_float   db  "The last input was invalid and not entered into the array", 10, 0
+    48 0000000C 696E70757420776173-
+    48 00000015 20696E76616C696420-
+    48 0000001E 616E64206E6F742065-
+    48 00000027 6E746572656420696E-
+    48 00000030 746F20746865206172-
+    48 00000039 7261790A00         
+    49 0000003E 546865206172726179-         full_message  db  "The array has been filled.", 10, 0
+    49 00000047 20686173206265656E-
+    49 00000050 2066696C6C65642E0A-
+    49 00000059 00                 
+    50                                  
+    51                                  segment .bss
+    52 00000000 <res 320h>                  buffer resb 800
+    53                                  
+    54                                  segment .text
+    55                                  input_array:
+    56                                      backup
+    45 00000000 55                  <1>  push rbp
+    46 00000001 4889E5              <1>  mov rbp, rsp
+    47 00000004 57                  <1>  push rdi
+    48 00000005 56                  <1>  push rsi
+    49 00000006 52                  <1>  push rdx
+    50 00000007 51                  <1>  push rcx
+    51 00000008 4150                <1>  push r8
+    52 0000000A 4151                <1>  push r9
+    53 0000000C 4152                <1>  push r10
+    54 0000000E 4153                <1>  push r11
+    55 00000010 4154                <1>  push r12
+    56 00000012 4155                <1>  push r13
+    57 00000014 4156                <1>  push r14
+    58 00000016 4157                <1>  push r15
+    59 00000018 53                  <1>  push rbx
+    60 00000019 9C                  <1>  pushf
+    57                                  
+    58 0000001A 4989FF                      mov r15, rdi
+    59 0000001D 4989F6                      mov r14, rsi
+    60 00000020 4D31ED                      xor r13, r13
+    61                                  
+    62                                  check_capacity:
+    63 00000023 4D39F5                      cmp r13, r14
+    64 00000026 7D58                        jge is_full
+    65                                  
+    66 00000028 48BF-                       mov rdi, floatformat
+    66 0000002A [0000000000000000] 
+    67 00000032 48BE-                       mov rsi, buffer
+    67 00000034 [0000000000000000] 
+    68 0000003C 4831C0                      xor rax, rax
+    69 0000003F E8(00000000)                call scanf
+    70                                  
+    71 00000044 83F8FF                      cmp eax, -1
+    72 00000047 7462                        je control_d
+    73                                  
+    74 00000049 48BF-                       mov rdi, buffer
+    74 0000004B [0000000000000000] 
+    75 00000053 E8(00000000)                call isfloat
+    76 00000058 4883F800                    cmp rax, 0
+    77 0000005C 7436                        je not_float
+    78                                  
+    79 0000005E 48BF-                       mov rdi, buffer
+    79 00000060 [0000000000000000] 
+    80 00000068 4831C0                      xor rax, rax
+    81 0000006B E8(00000000)                call atof
+    82 00000070 F2440F10F8                  movsd xmm15, xmm0
+    83                                  
+    84 00000075 F2470F113CEF                movsd [r15 + r13 * 8], xmm15
+    85                                  
+    86 0000007B 49FFC5                      inc r13
+    87 0000007E EBA3                        jmp check_capacity
+    88                                  
+    89                                  is_full:
+    90 00000080 48BF-                       mov rdi, full_message
+    90 00000082 [3E00000000000000] 
+    91 0000008A 4831C0                      xor rax, rax
+    92 0000008D E8(00000000)                call printf
+    93 00000092 EB19                        jmp exit
+    94                                  
+    95                                  not_float:
+    96 00000094 48BF-                       mov rdi, not_a_float
+    96 00000096 [0300000000000000] 
+    97 0000009E 4831C0                      xor rax, rax
+    98 000000A1 E8(00000000)                call printf
+    99 000000A6 E978FFFFFF                  jmp check_capacity
+   100                                  
+   101                                  control_d:
+   102 000000AB EB00                        jmp exit
+   103                                  
+   104                                  exit:
+   105 000000AD 4C89E8                      mov rax, r13
+   106                                  
+   107                                      restore
+    64 000000B0 9D                  <1>  popf
+    65 000000B1 5B                  <1>  pop rbx
+    66 000000B2 415F                <1>  pop r15
+    67 000000B4 415E                <1>  pop r14
+    68 000000B6 415D                <1>  pop r13
+    69 000000B8 415C                <1>  pop r12
+    70 000000BA 415B                <1>  pop r11
+    71 000000BC 415A                <1>  pop r10
+    72 000000BE 4159                <1>  pop r9
+    73 000000C0 4158                <1>  pop r8
+    74 000000C2 59                  <1>  pop rcx
+    75 000000C3 5A                  <1>  pop rdx
+    76 000000C4 5E                  <1>  pop rsi
+    77 000000C5 5F                  <1>  pop rdi
+    78 000000C6 5D                  <1>  pop rbp
+   108 000000C7 C3                          ret

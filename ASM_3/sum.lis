@@ -1,0 +1,57 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;* Program name: GNU Sort Debugger                                                                                          *
+     3                                  ;* Copyright (C) 2025 Konner Rigby.                                                                                         *
+     4                                  ;* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ;* version 3 as published by the Free Software Foundation. This program is distributed in the hope that it will be useful,   *
+     6                                  ;* but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See    *
+     7                                  ;* the GNU General Public License for more details. A copy of the GNU General Public License v3 is available here:          *
+     8                                  ;* <https://www.gnu.org/licenses/>.                                                                                         *
+     9                                  ;****************************************************************************************************************************
+    10                                  
+    11                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    12                                  ; Author information
+    13                                  ; Author: Konner Rigby
+    14                                  ; Author Email: rigbykonner@csu.fullerton.edu or rigbykonner@gmail.com
+    15                                  ; CWID: 884547654
+    16                                  ; Class: 240-03 Section 03
+    17                                  ;
+    18                                  ; Program information
+    19                                  ;   Program name: GNU Sort Debugger
+    20                                  ;   Programming languages: C, x86-64 Assembly, Bash
+    21                                  ;   Date program began: 2025-Oct-03
+    22                                  ;   Date of last update: 2025-Oct-10
+    23                                  ;   Files in this program: executive.c, manager.asm, inputarray.asm, outputarray.asm, sum.asm, sort.c, swap.asm,
+    24                                  ;                          isfloat.asm, backuprestore.inc, r.sh
+    25                                  ;   Status: Ready for GDB debugging.
+    26                                  ;
+    27                                  ; Purpose
+    28                                  ;   This program serves as a workspace to experiment with and learn the capabilities of the GNU Debugger (GDB).
+    29                                  ;
+    30                                  ; This file
+    31                                  ;   File name: sum.asm
+    32                                  ;   Language: x86-64 Assembly
+    33                                  ;   Assemble: nasm -f elf64 -g -F dwarf -o sum.o sum.asm
+    34                                  ;   Purpose: An assembly function to compute the sum of all elements in an array of 64-bit floats.
+    35                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    36                                  
+    37                                  global sum
+    38                                  
+    39                                  section .text
+    40                                  sum:
+    41                                      ; rdi = address of the array
+    42                                      ; rsi = count of elements
+    43                                      ; Returns the sum in xmm0
+    44                                  
+    45 00000000 B900000000                  mov     rcx, 0
+    46 00000005 660F57C0                    xorpd   xmm0, xmm0
+    47                                  
+    48                                  sum_loop:
+    49 00000009 4839F1                      cmp     rcx, rsi
+    50 0000000C 7D0A                        jge     done
+    51                                  
+    52 0000000E F20F5804CF                  addsd   xmm0, [rdi + rcx * 8]
+    53 00000013 48FFC1                      inc     rcx
+    54 00000016 EBF1                        jmp     sum_loop
+    55                                  
+    56                                  done:
+    57 00000018 C3                          ret

@@ -1,0 +1,78 @@
+     1                                  ;****************************************************************************************************************************
+     2                                  ;* Program name: Arrays of floats                                                                                     *
+     3                                  ;* Copyright (C) 2025 Konner Rigby.                                                                                           *
+     4                                  ;* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License  *
+     5                                  ;* version 3 as published by the Free Software Foundation. This program is distributed in the hope that it will be useful,   *
+     6                                  ;* but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See    *
+     7                                  ;* the GNU General Public License for more details. A copy of the GNU General Public License v3 is available here:            *
+     8                                  ;* <https://www.gnu.org/licenses/>.                                                                                           *
+     9                                  ;****************************************************************************************************************************
+    10                                  
+    11                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    12                                  ; Author information
+    13                                  ; Author: Konner Rigby
+    14                                  ; Author Email: rigbykonner@csu.fullerton.edu or rigbykonner@gmail.com
+    15                                  ; CWID: 884547654
+    16                                  ; Class: 240-03 Section 03
+    17                                  ;
+    18                                  ; Program information
+    19                                  ;   Program name: Arrays of floats
+    20                                  ;   Programming languages: C, x86-64 Assembly, Bash
+    21                                  ;   Date program began: 2025-Sep-10
+    22                                  ;   Date of last update: 2025-Sep-17
+    23                                  ;   Files in this program: main.cpp, manager.asm, input_array.asm, isfloat.asm, display_array.c, append.asm, magnitude.asm, 
+    24                                  ;   mean.asm, r.sh.
+    25                                  ;   Status: Ready for release.
+    26                                  ;
+    27                                  ; Purpose
+    28                                  ;   This program demonstrates hybrid programming by managing arrays of floating-point numbers using both C and Assembly.
+    29                                  ;
+    30                                  ; This file
+    31                                  ;   File name: append.asm
+    32                                  ;   Language: x86-64 Assembly (NASM)
+    33                                  ;   Assemble: nasm -f elf64 -g -o append.o append.asm
+    34                                  ;   Purpose: An assembly function that appends two source arrays into a single destination array.
+    35                                  ;========1=========2=========3=========4=========5=========6=========7=========8=========9=========0=========1=========2=========3**
+    36                                  
+    37                                  ; append.asm
+    38                                  ; append.asm
+    39                                  global append
+    40                                  
+    41                                  segment .text
+    42                                  append:
+    43                                      ; === Standard Prologue ===
+    44 00000000 55                          push    rbp
+    45 00000001 4889E5                      mov     rbp, rsp
+    46 00000004 4154                        push    r12
+    47 00000006 4155                        push    r13
+    48                                  
+    49                                      ; rdi=array1, rsi=size1, rdx=array2, rcx=size2, r8=dest_array
+    50 00000008 4D31E4                      xor     r12, r12   ; Loop counter
+    51 0000000B 4D31ED                      xor     r13, r13   ; Destination index
+    52                                  
+    53                                  copy_loop1:
+    54 0000000E 4939F4                      cmp     r12, rsi
+    55 00000011 7D14                        jge     end_loop1
+    56 00000013 F2420F1004E7                movsd   xmm0, [rdi + r12 * 8]  ; Load float into an xmm register
+    57 00000019 F2430F1104E8                movsd   [r8 + r13 * 8], xmm0   ; Store float from xmm register
+    58 0000001F 49FFC4                      inc     r12
+    59 00000022 49FFC5                      inc     r13
+    60 00000025 EBE7                        jmp     copy_loop1
+    61                                  end_loop1:
+    62 00000027 4D31E4                      xor     r12, r12
+    63                                  
+    64                                  copy_loop2:
+    65 0000002A 4939CC                      cmp     r12, rcx
+    66 0000002D 7D14                        jge     end_loop2
+    67 0000002F F2420F1004E2                movsd   xmm0, [rdx + r12 * 8]  ; Load float into an xmm register
+    68 00000035 F2430F1104E8                movsd   [r8 + r13 * 8], xmm0   ; Store float from xmm register
+    69 0000003B 49FFC4                      inc     r12
+    70 0000003E 49FFC5                      inc     r13
+    71 00000041 EBE7                        jmp     copy_loop2
+    72                                  end_loop2:
+    73                                  
+    74                                      ; === Standard Epilogue ===
+    75 00000043 415D                        pop     r13
+    76 00000045 415C                        pop     r12
+    77 00000047 5D                          pop     rbp
+    78 00000048 C3                          ret
